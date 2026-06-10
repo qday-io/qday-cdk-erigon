@@ -172,6 +172,8 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 		L1FinalizedBlockRequirement:            ctx.Uint64(utils.L1FinalizedBlockRequirementFlag.Name),
 		L1ContractAddressCheck:                 ctx.Bool(utils.L1ContractAddressCheckFlag.Name),
 		L1ContractAddressRetrieve:              ctx.Bool(utils.L1ContractAddressRetrieveFlag.Name),
+		InitialForkId:                          ctx.Uint64(utils.InitialForkIdFlag.Name),
+		SkipL1Sync:                             ctx.Bool(utils.SkipL1SyncFlag.Name),
 		RpcGetBatchWitnessConcurrencyLimit:     ctx.Int(utils.RpcGetBatchWitnessConcurrencyLimitFlag.Name),
 		DatastreamVersion:                      ctx.Int(utils.DatastreamVersionFlag.Name),
 		RebuildTreeAfter:                       ctx.Uint64(utils.RebuildTreeAfterFlag.Name),
@@ -271,12 +273,23 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 		}
 	}
 
-	checkFlag(utils.AddressZkevmFlag.Name, cfg.AddressZkevm)
-
-	checkFlag(utils.L1ChainIdFlag.Name, cfg.L1ChainId)
-	checkFlag(utils.L1RpcUrlFlag.Name, cfg.L1RpcUrl)
-	checkFlag(utils.L1MaticContractAddressFlag.Name, cfg.L1MaticContractAddress.Hex())
-	checkFlag(utils.L1FirstBlockFlag.Name, cfg.L1FirstBlock)
+	if cfg.SkipL1Sync {
+		if !sequencer.IsSequencer() {
+			panic("zkevm.skip-l1-sync can only be used with CDK_ERIGON_SEQUENCER=1")
+		}
+		if cfg.InitialForkId == 0 {
+			panic("zkevm.initial-fork-id must be set when zkevm.skip-l1-sync is enabled")
+		}
+		cfg.L1ContractAddressCheck = false
+		cfg.L1ContractAddressRetrieve = false
+		cfg.L1CacheEnabled = false
+	} else {
+		checkFlag(utils.AddressZkevmFlag.Name, cfg.AddressZkevm)
+		checkFlag(utils.L1ChainIdFlag.Name, cfg.L1ChainId)
+		checkFlag(utils.L1RpcUrlFlag.Name, cfg.L1RpcUrl)
+		checkFlag(utils.L1MaticContractAddressFlag.Name, cfg.L1MaticContractAddress.Hex())
+		checkFlag(utils.L1FirstBlockFlag.Name, cfg.L1FirstBlock)
+	}
 	checkFlag(utils.RpcGetBatchWitnessConcurrencyLimitFlag.Name, cfg.RpcGetBatchWitnessConcurrencyLimit)
 	checkFlag(utils.RebuildTreeAfterFlag.Name, cfg.RebuildTreeAfter)
 	checkFlag(utils.L1BlockRangeFlag.Name, cfg.L1BlockRange)

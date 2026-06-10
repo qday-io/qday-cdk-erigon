@@ -25,6 +25,8 @@ type Zk struct {
 	AddressGerManager                      common.Address
 	L1ContractAddressCheck                 bool
 	L1ContractAddressRetrieve              bool
+	InitialForkId                          uint64
+	SkipL1Sync                             bool
 	L1RollupId                             uint64
 	L1BlockRange                           uint64
 	L1QueryDelay                           uint64

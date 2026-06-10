@@ -44,6 +44,10 @@ func SpawnSequencerL1BlockSyncStage(
 	cfg SequencerL1BlockSyncCfg,
 	logger log.Logger,
 ) (funcErr error) {
+	if cfg.zkCfg.SkipL1Sync {
+		return nil
+	}
+
 	logPrefix := s.LogPrefix()
 	log.Info(fmt.Sprintf("[%s] Starting L1 block sync stage", logPrefix))
 	defer log.Info(fmt.Sprintf("[%s] Finished L1 block sync stage", logPrefix))

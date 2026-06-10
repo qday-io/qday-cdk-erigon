@@ -40,6 +40,7 @@ import (
 
 	"github.com/0xPolygonHermez/zkevm-data-streamer/datastreamer"
 	"github.com/ledgerwatch/erigon/zk/sequencer"
+	"github.com/ledgerwatch/erigon/zk/sovereign"
 	"github.com/ledgerwatch/erigon/zk/txpool"
 
 	"github.com/erigontech/mdbx-go/mdbx"
@@ -1018,9 +1019,13 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 
 		backend.chainConfig.AllowFreeTransactions = cfg.AllowFreeTransactions
 		backend.chainConfig.ZkDefaultGasPrice = cfg.DefaultGasPrice
-		l1Urls := strings.Split(cfg.L1RpcUrl, ",")
 
-		if cfg.Zk.L1CacheEnabled {
+		var l1Urls []string
+		if !cfg.Zk.SkipL1Sync {
+			l1Urls = strings.Split(cfg.L1RpcUrl, ",")
+		}
+
+		if cfg.Zk.L1CacheEnabled && !cfg.Zk.SkipL1Sync {
 			l1Cache, err := l1_cache.NewL1Cache(ctx, path.Join(stack.DataDir(), "l1cache"), cfg.Zk.L1CachePort)
 			if err != nil {
 				return nil, err
@@ -1036,9 +1041,11 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 			l1Urls = cacheL1Urls
 		}
 
-		backend.etherManClients = make([]*etherman.Client, len(l1Urls))
-		for i, url := range l1Urls {
-			backend.etherManClients[i] = newEtherMan(cfg, chainConfig.ChainName, url)
+		if !cfg.Zk.SkipL1Sync {
+			backend.etherManClients = make([]*etherman.Client, len(l1Urls))
+			for i, url := range l1Urls {
+				backend.etherManClients[i] = newEtherMan(cfg, chainConfig.ChainName, url)
+			}
 		}
 
 		isSequencer := sequencer.IsSequencer()
@@ -1105,8 +1112,15 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 
 		log.Info("Rollup ID", "rollupId", cfg.L1RollupId)
 
-		// Check if L1 contracts addresses should be retrieved from the L1 chain
-		l1ContractAddressProcess(ctx, cfg.Zk, backend.l1Syncer)
+		if cfg.Zk.SkipL1Sync {
+			log.Info("Sovereign mode: L1 sync disabled", "initialForkId", cfg.Zk.InitialForkId)
+			if err := sovereign.BootstrapForkHistoryTx(tx, cfg.Zk); err != nil {
+				return nil, err
+			}
+		} else {
+			// Check if L1 contracts addresses should be retrieved from the L1 chain
+			l1ContractAddressProcess(ctx, cfg.Zk, backend.l1Syncer)
+		}
 
 		l1InfoTreeSyncer := syncer.NewL1Syncer(
 			ctx,

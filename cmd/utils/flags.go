@@ -531,6 +531,16 @@ var (
 		Usage: "Retrieve the contracts addresses from the L1",
 		Value: true,
 	}
+	InitialForkIdFlag = cli.Uint64Flag{
+		Name:  "zkevm.initial-fork-id",
+		Usage: "Fork ID to bootstrap when running without L1 (requires zkevm.skip-l1-sync)",
+		Value: 0,
+	}
+	SkipL1SyncFlag = cli.BoolFlag{
+		Name:  "zkevm.skip-l1-sync",
+		Usage: "Run as a standalone sovereign chain without L1 sync (sequencer only)",
+		Value: false,
+	}
 	RebuildTreeAfterFlag = cli.Uint64Flag{
 		Name:  "zkevm.rebuild-tree-after",
 		Usage: "Rebuild the state tree after this many blocks behind",

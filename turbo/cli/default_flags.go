@@ -200,6 +200,8 @@ var DefaultFlags = []cli.Flag{
 	&utils.L1FinalizedBlockRequirementFlag,
 	&utils.L1ContractAddressCheckFlag,
 	&utils.L1ContractAddressRetrieveFlag,
+	&utils.InitialForkIdFlag,
+	&utils.SkipL1SyncFlag,
 	&utils.RpcRateLimitsFlag,
 	&utils.RpcGetBatchWitnessConcurrencyLimitFlag,
 	&utils.DatastreamVersionFlag,

@@ -33,6 +33,10 @@ func SpawnL1InfoTreeStage(
 	ctx context.Context,
 	logger log.Logger,
 ) (funcErr error) {
+	if cfg.zkCfg.SkipL1Sync {
+		return nil
+	}
+
 	logPrefix := s.LogPrefix()
 	log.Info(fmt.Sprintf("[%s] Starting L1 Info Tree stage", logPrefix))
 	defer log.Info(fmt.Sprintf("[%s] Finished L1 Info Tree stage", logPrefix))

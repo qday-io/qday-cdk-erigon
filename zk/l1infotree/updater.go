@@ -81,7 +81,7 @@ func (u *Updater) WarmUp(tx kv.RwTx) (err error) {
 
 	u.latestUpdate = latestUpdate
 
-	if !u.syncer.IsSyncStarted() {
+	if !u.cfg.SkipL1Sync && !u.syncer.IsSyncStarted() {
 		u.syncer.RunQueryBlocks(u.progress)
 	}
 

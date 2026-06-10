@@ -83,8 +83,10 @@ func sequencingBatchStep(
 	}
 	defer sdb.tx.Rollback()
 
-	if err = cfg.infoTreeUpdater.WarmUp(sdb.tx); err != nil {
-		return err
+	if !cfg.zk.SkipL1Sync {
+		if err = cfg.infoTreeUpdater.WarmUp(sdb.tx); err != nil {
+			return err
+		}
 	}
 
 	executionAt, err := s.ExecutionAt(sdb.tx)
@@ -352,19 +354,21 @@ func sequencingBatchStep(
 			default:
 			}
 
-			select {
-			case <-infoTreeTicker.C:
-				newLogs, err := cfg.infoTreeUpdater.CheckForInfoTreeUpdates(logPrefix, sdb.tx)
-				if err != nil {
-					return err
+			if !cfg.zk.SkipL1Sync {
+				select {
+				case <-infoTreeTicker.C:
+					newLogs, err := cfg.infoTreeUpdater.CheckForInfoTreeUpdates(logPrefix, sdb.tx)
+					if err != nil {
+						return err
+					}
+					var latestIndex uint64
+					latest := cfg.infoTreeUpdater.GetLatestUpdate()
+					if latest != nil {
+						latestIndex = latest.Index
+					}
+					log.Info(fmt.Sprintf("[%s] Info tree updates", logPrefix), "count", len(newLogs), "latestIndex", latestIndex)
+				default:
 				}
-				var latestIndex uint64
-				latest := cfg.infoTreeUpdater.GetLatestUpdate()
-				if latest != nil {
-					latestIndex = latest.Index
-				}
-				log.Info(fmt.Sprintf("[%s] Info tree updates", logPrefix), "count", len(newLogs), "latestIndex", latestIndex)
-			default:
 			}
 
 			if batchState.isLimboRecovery() {

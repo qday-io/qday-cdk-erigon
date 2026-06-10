@@ -15,6 +15,7 @@ import (
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
+	"github.com/ledgerwatch/erigon/eth/stagedsync/stages"
 	zktx "github.com/ledgerwatch/erigon/zk/tx"
 	zktypes "github.com/ledgerwatch/erigon/zk/types"
 	"github.com/ledgerwatch/erigon/zk/utils"
@@ -49,8 +50,16 @@ func processInjectedInitialBatch(
 		}
 
 		// injected batch transactions are already baked in the genesis file
-		// (no need to do anything at this point)
 		if importResult.isPartOfGenesis {
+			if err := stages.SaveStageProgress(batchContext.sdb.tx, stages.Execution, injectedBatchBlockNumber); err != nil {
+				return err
+			}
+			if err := stages.SaveStageProgress(batchContext.sdb.tx, stages.HighestSeenBatchNumber, injectedBatchBatchNumber); err != nil {
+				return err
+			}
+			if err := batchContext.sdb.hermezDb.WriteForkId(injectedBatchBatchNumber, batchState.forkId); err != nil {
+				return err
+			}
 			return nil
 		}
 
@@ -59,6 +68,18 @@ func processInjectedInitialBatch(
 		// retrieve injected batch from the database
 		injectedBatch, err = batchContext.sdb.hermezDb.GetL1InjectedBatch(0)
 		if err != nil {
+			if batchContext.cfg.zk.SkipL1Sync {
+				if err := stages.SaveStageProgress(batchContext.sdb.tx, stages.Execution, injectedBatchBlockNumber); err != nil {
+					return err
+				}
+				if err := stages.SaveStageProgress(batchContext.sdb.tx, stages.HighestSeenBatchNumber, injectedBatchBatchNumber); err != nil {
+					return err
+				}
+				if err := batchContext.sdb.hermezDb.WriteForkId(injectedBatchBatchNumber, batchState.forkId); err != nil {
+					return err
+				}
+				return nil
+			}
 			return err
 		}
 	}
