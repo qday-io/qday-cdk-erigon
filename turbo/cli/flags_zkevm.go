@@ -245,7 +245,11 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 
 	checkFlag(utils.L2ChainIdFlag.Name, cfg.L2ChainId)
 	if !sequencer.IsSequencer() {
-		checkFlag(utils.L2RpcUrlFlag.Name, cfg.Zk.L2RpcUrl)
+		// In sovereign RPC mode (skip-l1-sync), L2RpcUrl is not required because
+		// the datastream is the sole source of truth and rollback uses it directly.
+		if !cfg.SkipL1Sync {
+			checkFlag(utils.L2RpcUrlFlag.Name, cfg.Zk.L2RpcUrl)
+		}
 		checkFlag(utils.L2DataStreamerUrlFlag.Name, cfg.L2DataStreamerUrl)
 	} else {
 		checkFlag(utils.ExecutorUrls.Name, cfg.ExecutorUrls)
@@ -274,9 +278,6 @@ func ApplyFlagsForZkConfig(ctx *cli.Context, cfg *ethconfig.Config) {
 	}
 
 	if cfg.SkipL1Sync {
-		if !sequencer.IsSequencer() {
-			panic("zkevm.skip-l1-sync can only be used with CDK_ERIGON_SEQUENCER=1")
-		}
 		if cfg.InitialForkId == 0 {
 			panic("zkevm.initial-fork-id must be set when zkevm.skip-l1-sync is enabled")
 		}

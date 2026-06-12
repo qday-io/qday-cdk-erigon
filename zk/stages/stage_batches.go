@@ -672,20 +672,36 @@ func rollback(
 	tx kv.RwTx,
 	u stagedsync.Unwinder,
 ) (uint64, error) {
-	dsClient := buildNewStreamClient(ctx, cfg, latestFork)
-	if err := dsClient.Start(); err != nil {
-		return 0, err
-	}
-	defer func() {
-		if err := dsClient.Stop(); err != nil {
-			log.Error(fmt.Sprintf("[%s] Failed to stop datastream client whilst rolling back", logPrefix), "error", err)
+	var ancestorBlockNum uint64
+	var ancestorBlockHash common.Hash
+
+	if cfg.zkCfg.SkipL1Sync {
+		// In sovereign mode the datastream is the sole source of truth; skip the
+		// L2 RPC comparison and treat the datastream tip as the common ancestor.
+		ancestorBlockNum = latestDSBlockNum
+		var err error
+		ancestorBlockHash, err = eriDb.ReadCanonicalHash(ancestorBlockNum)
+		if err != nil {
+			return 0, fmt.Errorf("ReadCanonicalHash %d: %w", ancestorBlockNum, err)
 		}
-	}()
-	ancestorBlockNum, ancestorBlockHash, err := findCommonAncestor(cfg, eriDb, hermezDb, l2BlockReaderRpc{}, latestDSBlockNum)
-	if err != nil {
-		return 0, fmt.Errorf("findCommonAncestor: %w", err)
+		log.Debug(fmt.Sprintf("[%s] Sovereign rollback: using datastream tip as ancestor block %d (%s)", logPrefix, ancestorBlockNum, ancestorBlockHash))
+	} else {
+		dsClient := buildNewStreamClient(ctx, cfg, latestFork)
+		if err := dsClient.Start(); err != nil {
+			return 0, err
+		}
+		defer func() {
+			if err := dsClient.Stop(); err != nil {
+				log.Error(fmt.Sprintf("[%s] Failed to stop datastream client whilst rolling back", logPrefix), "error", err)
+			}
+		}()
+		var err error
+		ancestorBlockNum, ancestorBlockHash, err = findCommonAncestor(cfg, eriDb, hermezDb, l2BlockReaderRpc{}, latestDSBlockNum)
+		if err != nil {
+			return 0, fmt.Errorf("findCommonAncestor: %w", err)
+		}
+		log.Debug(fmt.Sprintf("[%s] The common ancestor for datastream and db is block %d (%s)", logPrefix, ancestorBlockNum, ancestorBlockHash))
 	}
-	log.Debug(fmt.Sprintf("[%s] The common ancestor for datastream and db is block %d (%s)", logPrefix, ancestorBlockNum, ancestorBlockHash))
 
 	unwindBlockNum, unwindBlockHash, batchNum, err := getUnwindPoint(eriDb, hermezDb, ancestorBlockNum, ancestorBlockHash)
 	if err != nil {

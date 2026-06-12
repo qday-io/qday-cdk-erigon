@@ -538,7 +538,7 @@ var (
 	}
 	SkipL1SyncFlag = cli.BoolFlag{
 		Name:  "zkevm.skip-l1-sync",
-		Usage: "Run as a standalone sovereign chain without L1 sync (sequencer only)",
+		Usage: "Run without L1 sync (sequencer or RPC node). Requires zkevm.initial-fork-id.",
 		Value: false,
 	}
 	RebuildTreeAfterFlag = cli.Uint64Flag{

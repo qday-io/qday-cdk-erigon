@@ -1231,6 +1231,13 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 			  ZZZZZZZ  K   K  R   R   P       CCCC
 
 			*/
+			if cfg.Zk.SkipL1Sync {
+				log.Info("Sovereign RPC mode: L1 sync disabled", "initialForkId", cfg.Zk.InitialForkId)
+				if err := sovereign.BootstrapForkHistoryTx(tx, cfg.Zk); err != nil {
+					return nil, err
+				}
+			}
+
 			latestForkId, err := stages.GetStageProgress(tx, stages.ForkId)
 			if err != nil {
 				return nil, err

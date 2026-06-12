@@ -1,0 +1,21 @@
+datadir: ./datadir-sovereign-rpc
+chain: dynamic-sovereign
+http: true
+externalcl: true
+
+zkevm.l2-chain-id: 99999
+
+# Sovereign RPC mode — sync from the sovereign sequencer's datastream, no L1 required
+zkevm.skip-l1-sync: true
+zkevm.initial-fork-id: 12
+
+# URL of the sovereign sequencer's datastream (host:port)
+zkevm.l2-datastreamer-url: "127.0.0.1:6900"
+zkevm.datastream-version: 2
+
+http.api: [eth, debug, net, trace, web3, erigon, txpool, zkevm]
+http.addr: "0.0.0.0"
+http.port: 8124
+http.vhosts: "*"
+http.corsdomain: "*"
+ws: true
