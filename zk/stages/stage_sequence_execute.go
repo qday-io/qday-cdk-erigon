@@ -124,7 +124,12 @@ func sequencingBatchStep(
 	streamWriter := newSequencerBatchStreamWriter(batchContext, batchState)
 
 	// injected batch
-	if executionAt == 0 {
+	// In sovereign mode there is no L1-injected batch: genesis (block 0) is the starting
+	// point and the sequencer produces block 1 as the first batch through the normal loop
+	// below. The fork upgrade (handled by prepareForkId/UpdateZkEVMBlockCfg) and the
+	// block-by-block datastream writer take care of batch 1 correctly, so we must skip the
+	// injected-batch special case which would otherwise try to stream a non-existent block.
+	if executionAt == 0 && !cfg.zk.SkipL1Sync {
 		if err = processInjectedInitialBatch(batchContext, batchState); err != nil {
 			return err
 		}
