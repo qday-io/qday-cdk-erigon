@@ -1,16 +1,14 @@
 # qday2-testnet — Sovereign L2 (no L1 required)
 #
-# Services:
+# Sequencer node only — sole block producer + datastream server.
 #   sequencer  — block producer + datastream server  (RPC :8123, datastream :6900)
-#   rpc        — read-only RPC node, syncs from sequencer datastream  (RPC :8124)
+#
+# RPC nodes live in compose.yml and connect to this sequencer's datastream.
 #
 # Setup:
 #   cp .env.example .env
 #   docker compose pull
 #   docker compose up
-#
-# Start sequencer only:
-#   docker compose up sequencer
 
 x-cdk-erigon-base: &cdk-erigon-base
   image: ${CDK_ERIGON_IMAGE}
@@ -48,38 +46,6 @@ services:
       retries: 10
       start_period: 30s
 
-  # ─────────────────────────────────────────────
-  #  RPC Node — read-only, syncs from sequencer
-  #  Does NOT produce blocks; safe to scale
-  # ─────────────────────────────────────────────
-  rpc:
-    <<: *cdk-erigon-base
-    container_name: qday2-rpc
-    command:
-      - --config=/config/dynamic-sovereign-rpc.yaml
-      # override relative paths and point datastream at sequencer container
-      - --datadir=/data
-      - --zkevm.l2-datastreamer-url=sequencer:6900
-    volumes:
-      - ./:/config:ro
-      - rpc-data:/data
-    ports:
-      - "${RPC_PORT:-8124}:8124"               # HTTP JSON-RPC + WebSocket
-    depends_on:
-      sequencer:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "sh", "-c",
-        "curl -sf -X POST http://localhost:8124 -H 'Content-Type: application/json' \
-         -d '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' \
-         | grep -q result"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
-
 volumes:
   sequencer-data:
     name: qday2-sequencer-data
-  rpc-data:
-    name: qday2-rpc-data

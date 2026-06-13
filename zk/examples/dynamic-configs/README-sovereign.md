@@ -4,15 +4,24 @@ Standalone zkEVM L2 without L1, AggLayer, cdk-node, or cdk-dac.
 
 ## Docker Compose
 
-Requires Docker Hub access (pull `alpine:3.17`). On macOS, cross-compile for Linux first:
+The compose stack is split by role:
+
+- `docker-compose.yml` — **sequencer** node only (block producer + datastream server)
+- `compose.yml` — **RPC** node only (read-only, syncs from the sequencer datastream)
 
 ```bash
-# Apple Silicon
-GOOS=linux GOARCH=arm64 make cdk-erigon
-
 cd zk/examples/dynamic-configs
-docker compose up --build
+cp .env.example .env
+
+# Sequencer host
+docker compose up                     # uses docker-compose.yml by default
+
+# RPC host (set SEQUENCER_DATASTREAMER_URL in .env to the sequencer endpoint)
+docker compose -f compose.yml up
 ```
+
+When the RPC node runs on the same host as the sequencer, the default
+`SEQUENCER_DATASTREAMER_URL=host.docker.internal:6900` works as-is.
 
 If `auth.docker.io ... i/o timeout`, use **native run** (no Docker):
 
@@ -44,6 +53,43 @@ CDK_ERIGON_SEQUENCER=1 ./build/bin/cdk-erigon \
 
 Point `zkevm.l2-datastreamer-url` to the sequencer's datastream endpoint
 (`<host>:<data-stream-port>`).
+
+## Sending transactions to an RPC node
+
+The RPC node has no txpool and produces no blocks. When a client sends
+`eth_sendRawTransaction` to the RPC node, it transparently **forwards** the tx to
+the sequencer's HTTP RPC, where it is queued and sealed. Clients need no change.
+
+Two URLs serve different roles — both must point at the sequencer:
+
+- `zkevm.l2-datastreamer-url` (`:6900`) — **read**: sync blocks from the sequencer
+- `zkevm.l2-sequencer-rpc-url` (`:8123`) — **write**: forward txs to the sequencer
+
+Without `zkevm.l2-sequencer-rpc-url` the RPC node still syncs, but submitting a
+transaction to it fails (forwards to an empty URL).
+
+### With a tx pool manager (docker-compose.rpc.yml)
+
+`docker-compose.rpc.yml` runs an [zkevm-pool-manager](https://github.com/0xPolygon/zkevm-pool-manager)
+alongside the RPC node. Instead of forwarding each tx straight to the sequencer,
+the RPC node redirects `eth_sendRawTransaction` to the pool manager, which queues
+txs in its own Postgres DB and forwards them to the sequencer:
+
+```
+client -> rpc (eth_sendRawTransaction) -> tx-pool-manager -> sequencer
+```
+
+RPC node flags (set in the compose file):
+
+- `txpool.disable: true` — the RPC node keeps no local txpool
+- `zkevm.pool-manager-url: http://tx-pool-manager:8545` — redirect target
+
+When `zkevm.pool-manager-url` is set it takes precedence over
+`zkevm.l2-sequencer-rpc-url` for `eth_sendRawTransaction`.
+
+Pool manager config lives in `poolmanager.toml`; `Sender.SequencerURL` /
+`Monitor.L2NodeURL` point at the sequencer and can be overridden with
+`SEQUENCER_RPC_URL` in `.env`.
 
 ## Key flags
 

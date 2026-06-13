@@ -8,9 +8,14 @@ zkevm.l2-chain-id: 44005
 zkevm.skip-l1-sync: true
 zkevm.initial-fork-id: 12
 
-# URL of the sovereign sequencer's datastream (host:port)
+# URL of the sovereign sequencer's datastream (host:port) — used to SYNC blocks
 zkevm.l2-datastreamer-url: "127.0.0.1:6900"
 zkevm.datastream-version: 2
+
+# Sequencer HTTP RPC endpoint — used to FORWARD write requests
+# (eth_sendRawTransaction, txpool, pending nonce/tx) to the sequencer.
+# Required if clients send transactions to this RPC node.
+zkevm.l2-sequencer-rpc-url: "http://127.0.0.1:8123"
 
 # Avoid port conflicts when running alongside sequencer on the same host
 private.api.addr: "127.0.0.1:9091"
