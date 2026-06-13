@@ -1,0 +1,26 @@
+# Lightweight image: copies a locally built Linux binary (no in-docker Go compile).
+#
+# On macOS/Windows you must cross-compile for Linux before docker build:
+#   GOOS=linux GOARCH=arm64 make cdk-erigon   # Apple Silicon
+#   GOOS=linux GOARCH=amd64 make cdk-erigon   # Intel
+#
+# Requires Docker Hub access to pull alpine:3.17.
+# If Docker Hub is unreachable, run natively instead:
+#   ./start-sequencer.sh
+#   ./start-rpc.sh
+
+FROM alpine:3.17
+
+RUN apk add --no-cache ca-certificates libstdc++ tzdata curl
+
+ARG UID=1000
+ARG GID=1000
+RUN adduser -D -u $UID -g $GID erigon
+USER erigon
+WORKDIR /home/erigon
+
+COPY build/bin/cdk-erigon /usr/local/bin/cdk-erigon
+
+EXPOSE 8123 8124 6900 8545
+
+ENTRYPOINT ["cdk-erigon"]
