@@ -81,8 +81,20 @@ func (sbc *SequencerBatchStreamWriter) writeBlockDetailsToDatastream(verifiedBun
 			if len(request.BlockNumbers) == 1 {
 				var found bool
 				previousBlockBatchNumber, found, err = sbc.sdb.hermezDb.HermezDbReader.CheckBatchNoByL2Block(previousBlock.NumberU64())
-				if !found || err != nil {
+				if err != nil {
 					return checkedVerifierBundles, err
+				}
+				if !found {
+					// genesis (block 0) belongs to batch 0 but has no block->batch mapping
+					// stored, so treat it explicitly. This matters in sovereign mode where the
+					// first sequenced block (block 1) directly follows genesis instead of an
+					// L1-injected batch. For any other block a missing mapping is a real
+					// inconsistency, so keep the previous bail-out behaviour.
+					if previousBlock.NumberU64() == 0 {
+						previousBlockBatchNumber = 0
+					} else {
+						return checkedVerifierBundles, nil
+					}
 				}
 			}
 
