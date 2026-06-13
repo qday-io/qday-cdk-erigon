@@ -1,9 +1,8 @@
 datadir: ./datadir-sovereign
-chain: dynamic-sovereign
+chain: dynamic-qday2-testnet
 http: true
-externalcl: true
 
-zkevm.l2-chain-id: 99999
+zkevm.l2-chain-id: 44005
 
 # Standalone sovereign mode — no L1, AggLayer, cdk-node, or cdk-dac
 zkevm.skip-l1-sync: true

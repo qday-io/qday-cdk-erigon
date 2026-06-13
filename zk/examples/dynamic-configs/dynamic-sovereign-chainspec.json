@@ -1,6 +1,6 @@
 {
-  "ChainName": "dynamic-sovereign",
-  "chainId": 99999,
+  "ChainName": "qday2-testnet",
+  "chainId": 44005,
   "consensus": "ethash",
   "homesteadBlock": 0,
   "daoForkBlock": 0,

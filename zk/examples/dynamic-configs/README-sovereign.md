@@ -2,6 +2,30 @@
 
 Standalone zkEVM L2 without L1, AggLayer, cdk-node, or cdk-dac.
 
+## Docker Compose
+
+Requires Docker Hub access (pull `alpine:3.17`). On macOS, cross-compile for Linux first:
+
+```bash
+# Apple Silicon
+GOOS=linux GOARCH=arm64 make cdk-erigon
+
+cd zk/examples/dynamic-configs
+docker compose up --build
+```
+
+If `auth.docker.io ... i/o timeout`, use **native run** (no Docker):
+
+```bash
+# Terminal 1 — sequencer
+chmod +x zk/examples/dynamic-configs/start-sequencer.sh
+./zk/examples/dynamic-configs/start-sequencer.sh
+
+# Terminal 2 — RPC (after sequencer is up)
+chmod +x zk/examples/dynamic-configs/start-rpc.sh
+./zk/examples/dynamic-configs/start-rpc.sh
+```
+
 ## Start sequencer
 
 ```bash
