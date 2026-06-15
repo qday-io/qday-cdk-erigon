@@ -19,11 +19,17 @@
 #   # set SEQUENCER_DATASTREAMER_URL and SEQUENCER_RPC_URL to the sequencer
 #   docker compose -f docker-compose.rpc.yml pull
 #   docker compose -f docker-compose.rpc.yml up
+#
+# With Blockscout explorer (server 02):
+#   docker compose -f docker-compose.rpc.yml -f docker-compose.blockscout.yml up
 
 x-cdk-erigon-base: &cdk-erigon-base
   image: ${CDK_ERIGON_IMAGE}
   restart: unless-stopped
   mem_swappiness: 0
+  # entrypoint chowns /data then drops to erigon (UID 1000)
+  user: root
+  entrypoint: ["/bin/sh", "/config/docker-entrypoint.sh"]
 
 services:
   # ─────────────────────────────────────────────

@@ -14,6 +14,9 @@ x-cdk-erigon-base: &cdk-erigon-base
   image: ${CDK_ERIGON_IMAGE}
   restart: unless-stopped
   mem_swappiness: 0
+  # entrypoint chowns /data then drops to erigon (UID 1000)
+  user: root
+  entrypoint: ["/bin/sh", "/config/docker-entrypoint.sh"]
 
 services:
   # ─────────────────────────────────────────────
