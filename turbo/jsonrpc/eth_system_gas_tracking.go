@@ -91,6 +91,10 @@ func (t *RecurringL1GasPriceTracker) GetLowestPrice() *big.Int {
 	t.lowestMtx.Lock()
 	defer t.lowestMtx.Unlock()
 
+	if t.lowestPrice == nil && !t.usesL1GasPrice() {
+		return t.configuredDefaultGasPrice()
+	}
+
 	return t.lowestPrice
 }
 
@@ -101,9 +105,20 @@ func (t *RecurringL1GasPriceTracker) setLowestPrice(price *big.Int) {
 	t.lowestPrice = price
 }
 
+func (t *RecurringL1GasPriceTracker) usesL1GasPrice() bool {
+	return t.rpcUrl != ""
+}
+
+func (t *RecurringL1GasPriceTracker) configuredDefaultGasPrice() *big.Int {
+	return new(big.Int).SetUint64(t.defaultGasPrice)
+}
+
 func (t *RecurringL1GasPriceTracker) GetLatestPrice() (*big.Int, error) {
 	if t.gasLess {
 		return big.NewInt(0), nil
+	}
+	if !t.usesL1GasPrice() {
+		return t.configuredDefaultGasPrice(), nil
 	}
 
 	// if we're not regularly polling default to old behaviour of just fetching the price
@@ -129,7 +144,7 @@ func (t *RecurringL1GasPriceTracker) GetLatestPrice() (*big.Int, error) {
 }
 
 func (t *RecurringL1GasPriceTracker) Start() {
-	if t.running || t.frequency == 0 {
+	if t.running || t.frequency == 0 || !t.usesL1GasPrice() {
 		return
 	}
 	t.running = true
@@ -150,6 +165,13 @@ func (t *RecurringL1GasPriceTracker) Start() {
 }
 
 func (t *RecurringL1GasPriceTracker) fetchAndStoreNewL1GasPrice() error {
+	if !t.usesL1GasPrice() {
+		defaultPrice := t.configuredDefaultGasPrice()
+		t.setLatestPrice(defaultPrice)
+		t.calculateAndStoreNewLowestPrice(defaultPrice)
+		return nil
+	}
+
 	latest, err := t.fetchLatestL1Price()
 	if err != nil {
 		return err

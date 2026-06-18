@@ -65,3 +65,22 @@ func Test_RecurringL1GasPriceTracker_newLowestPrice(t *testing.T) {
 	}
 
 }
+
+func Test_RecurringL1GasPriceTracker_withoutL1Rpc(t *testing.T) {
+	const defaultGasPrice = uint64(1_000_000_000)
+
+	tracker := NewRecurringL1GasPriceTracker(false, 1, defaultGasPrice, 0, "", 0, 1)
+
+	price, err := tracker.GetLatestPrice()
+	if err != nil {
+		t.Fatalf("GetLatestPrice: %v", err)
+	}
+	if price.Uint64() != defaultGasPrice {
+		t.Fatalf("GetLatestPrice = %d, want %d", price.Uint64(), defaultGasPrice)
+	}
+
+	lowest := tracker.GetLowestPrice()
+	if lowest.Uint64() != defaultGasPrice {
+		t.Fatalf("GetLowestPrice = %d, want %d", lowest.Uint64(), defaultGasPrice)
+	}
+}
