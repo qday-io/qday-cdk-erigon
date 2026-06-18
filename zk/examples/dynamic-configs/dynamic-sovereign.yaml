@@ -8,6 +8,8 @@ zkevm.l2-chain-id: 44005
 zkevm.skip-l1-sync: true
 zkevm.initial-fork-id: 12
 
+zkevm.allow-free-transactions: false
+
 zkevm.executor-strict: false
 zkevm.disable-virtual-counters: true
 zkevm.initial-batch.config: "./zk/examples/dynamic-configs/empty-batch.json"
