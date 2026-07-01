@@ -1,0 +1,54 @@
+# zkevm-pool-manager config (used by docker-compose.rpc.yml)
+#
+# Flow:  client -> RPC node (eth_sendRawTransaction) -> pool-manager -> sequencer
+#
+# Sender.SequencerURL / Monitor.L2NodeURL point at the sequencer's HTTP RPC.
+#
+# NOTE: TOML has no ${VAR} substitution. Under docker compose these two values
+# are OVERRIDDEN at runtime by .env (SEQUENCER_RPC_URL), via env vars mapped in
+# docker-compose.rpc.yml -> viper AutomaticEnv:
+#   .env SEQUENCER_RPC_URL
+#     -> ZKEVM_POOL_MANAGER_SENDER_SEQUENCERURL
+#     -> ZKEVM_POOL_MANAGER_MONITOR_L2NODEURL
+# So change the sequencer address in .env, not here. The values below are only
+# fallback defaults used when running the pool manager outside that compose.
+
+[Log]
+Environment = "production" # "production" or "development"
+Level = "info"
+Outputs = ["stderr"]
+
+[Server]
+Host = "0.0.0.0"
+Port = 8545
+ReadTimeout = "60s"
+WriteTimeout = "60s"
+MaxRequestsPerIPAndSecond = 500
+EnableHttpLog = true
+BatchRequestsEnabled = false
+BatchRequestsLimit = 20
+
+[DB]
+User = "pool_user"
+Password = "pool_password"
+Name = "pool_db"
+Host = "pool-db"
+Port = "5432"
+EnableLog = false
+MaxConns = 200
+
+[Sender]
+# fallback only — overridden by .env SEQUENCER_RPC_URL under docker compose
+SequencerURL = "http://host.docker.internal:8123"
+ResendTxsCheckInterval = "1s"
+Workers = 5
+QueueSize = 25
+
+[Monitor]
+# fallback only — overridden by .env SEQUENCER_RPC_URL under docker compose
+L2NodeURL = "http://host.docker.internal:8123"
+Workers = 5
+QueueSize = 25
+RetryWaitInterval = "3s"
+InitialWaitInterval = "1s"
+TxLifeTimeMax = "60s"

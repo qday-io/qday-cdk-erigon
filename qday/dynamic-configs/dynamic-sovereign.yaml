@@ -1,0 +1,32 @@
+datadir: ./datadir-sovereign
+chain: dynamic-qday2-testnet
+http: true
+
+zkevm.l2-chain-id: 44005
+
+# Standalone sovereign mode — no L1, AggLayer, cdk-node, or cdk-dac
+zkevm.skip-l1-sync: true
+zkevm.initial-fork-id: 12
+
+zkevm.allow-free-transactions: false
+
+zkevm.executor-strict: false
+zkevm.disable-virtual-counters: true
+zkevm.initial-batch.config: "./zk/examples/dynamic-configs/empty-batch.json"
+
+zkevm.data-stream-port: 6900
+zkevm.data-stream-host: "0.0.0.0"
+zkevm.datastream-version: 2
+
+zkevm.sequencer-block-seal-time: "5s"
+zkevm.sequencer-batch-seal-time: "15m"
+zkevm.allow-pre-eip155-transactions: true
+
+zkevm.default-gas-price: 1000000000
+
+http.api: [eth, debug, net, trace, web3, erigon, txpool, zkevm]
+http.addr: "0.0.0.0"
+http.port: 8123
+http.vhosts: "*"
+http.corsdomain: "*"
+ws: true

@@ -1,0 +1,54 @@
+# qday2-testnet — Sovereign L2 (no L1 required)
+#
+# Sequencer node only — sole block producer + datastream server.
+#   sequencer  — block producer + datastream server  (RPC :8123, datastream :6900)
+#
+# RPC nodes live in compose.yml and connect to this sequencer's datastream.
+#
+# Setup:
+#   cp .env.example .env
+#   docker compose pull
+#   docker compose up
+
+x-cdk-erigon-base: &cdk-erigon-base
+  image: ${CDK_ERIGON_IMAGE}
+  restart: unless-stopped
+  mem_swappiness: 0
+  # entrypoint chowns /data then drops to erigon (UID 1000)
+  user: root
+  entrypoint: ["/bin/sh", "/config/docker-entrypoint.sh"]
+
+services:
+  # ─────────────────────────────────────────────
+  #  Sequencer — sole block producer
+  #  Exposes datastream on :6900 for RPC nodes
+  # ─────────────────────────────────────────────
+  sequencer:
+    <<: *cdk-erigon-base
+    container_name: qday2-sequencer
+    environment:
+      - CDK_ERIGON_SEQUENCER=1
+    command:
+      - --config=/config/dynamic-sovereign.yaml
+      # override relative paths from yaml
+      - --datadir=/data
+      - --zkevm.initial-batch.config=/config/empty-batch.json
+    volumes:
+      - ./:/config:ro
+      - sequencer-data:/data
+    ports:
+      - "${SEQUENCER_RPC_PORT:-8123}:8123"     # HTTP JSON-RPC + WebSocket
+      - "${SEQUENCER_DATASTREAM_PORT:-6900}:6900" # Datastream (consumed by RPC nodes)
+    healthcheck:
+      test: ["CMD", "sh", "-c",
+        "curl -sf -X POST http://localhost:8123 -H 'Content-Type: application/json' \
+         -d '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' \
+         | grep -q result"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  sequencer-data:
+    name: qday2-sequencer-data
