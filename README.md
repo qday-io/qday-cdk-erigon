@@ -45,7 +45,9 @@ base and run `go run cmd/hack/allocs/main.go [your-file-name]` to convert it to 
 
 Mount the directory containing the config files on docker container: `/dynamic-mynetwork` for example
 
-To use the new config when starting erigon use the `--cfg` flag with the path to the config file e.g. `--cfg="/dynamic-mynetwork/dynamic-mynetwork.yaml"`
+A complete worked example for a CDK chain is available in [`qday/dynamic-configs/`](qday/dynamic-configs/). See also [`qday/README.md`](qday/README.md) for architecture and usage docs.
+
+To use the new config when starting erigon use the `--config` flag with the path to the config file e.g. `--config="./dynamic-mynetwork/dynamic-mynetwork.yaml"`
 
 ## Prereqs
 In order to use the optimal vectorized poseidon hashing for the Sparse Merkle Tree, on x86 the following packages are required (for Apple silicon it will fall back to the iden3 library and as such these dependencies are not required in that case.
@@ -226,6 +228,19 @@ Metrics and pprof configuration flags:
 |---------------|----------|--------|--------------|--------------------------------------------------|------------------|----------------------------------------------|
 | zkEVM Mainnet | 1101     | 9      | [Link](https://hackmd.io/bpmxb5QaSFafV0nB4i-KZA) | [Mainnet RPC](https://zkevm-rpc.com/)            | Ethereum Mainnet | `0x5132A183E9F3CB7C848b0AAC5Ae0c4f0491B7aB2` |
 | zkEVM Cardona | 2442     | 9      | [Link](https://hackmd.io/Ug9pB613SvevJgnXRC4YJA) | [Cardona RPC](https://rpc.cardona.zkevm-rpc.com/) | Sepolia          | `0x32d33D5137a7cFFb54c5Bf8371172bcEc5f310ff` |
+
+***
+
+## QDay2 Testnet (Validium)
+
+See [`qday/`](qday/) for the QDay2 Testnet deployment — a standalone zkEVM Validium L2 that runs without L1, AggLayer, cdk-node, or cdk-dac. Includes:
+
+- Ready-to-use config files for sequencer and RPC nodes
+- Docker Compose stacks (sequencer + RPC with pool manager)
+- Native start scripts, health-check, cleanup, and config validation tools
+- Blockscout explorer configuration
+
+Quick start: `./qday/dynamic-configs/start-all.sh`
 
 ***
 

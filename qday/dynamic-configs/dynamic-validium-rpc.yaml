@@ -1,0 +1,55 @@
+datadir: ./qday/dynamic-configs/datadir-validium-rpc
+chain: dynamic-qday2-testnet
+http: true
+
+zkevm.l2-chain-id: 44005
+
+# L1 / rollup — fill from deploy_output.json before disabling skip-l1-sync
+zkevm.l1-chain-id: 11155111
+zkevm.l1-rpc-url: "https://YOUR_L1_RPC_ENDPOINT"
+
+zkevm.address-sequencer: "0x0000000000000000000000000000000000000000"
+zkevm.address-zkevm: "0x0000000000000000000000000000000000000000"
+zkevm.address-rollup: "0x0000000000000000000000000000000000000000"
+zkevm.address-ger-manager: "0x0000000000000000000000000000000000000000"
+
+zkevm.l1-matic-contract-address: "0x0000000000000000000000000000000000000000"
+zkevm.l1-block-range: 20000
+zkevm.l1-query-delay: 6000
+zkevm.l1-first-block: 1
+
+zkevm.l1-contract-address-check: false
+zkevm.l1-contract-address-retrieve: false
+zkevm.l1-cache-enabled: false
+
+# Standalone validium RPC (current):
+#   zkevm.skip-l1-sync: true
+#   zkevm.initial-fork-id: 12
+# Real L1 connection — set skip-l1-sync to false (or remove; default is false),
+# and remove initial-fork-id (only used without L1; fork history comes from L1 sync).
+zkevm.skip-l1-sync: true
+zkevm.initial-fork-id: 12
+
+# URL of the validium sequencer's datastream (host:port) — used to SYNC blocks
+zkevm.l2-datastreamer-url: "127.0.0.1:6900"
+zkevm.datastream-version: 2
+
+# Sequencer HTTP RPC endpoint — used to FORWARD write requests
+# (eth_sendRawTransaction, txpool, pending nonce/tx) to the sequencer.
+# Required if clients send transactions to this RPC node.
+zkevm.l2-sequencer-rpc-url: "http://127.0.0.1:8123"
+
+# Avoid port conflicts when running alongside sequencer on the same host
+private.api.addr: "127.0.0.1:9091"
+authrpc.port: 8552
+port: 30305
+torrent.port: 42070
+
+http.api: [eth, debug, net, trace, web3, erigon, txpool, zkevm]
+http.addr: "0.0.0.0"
+http.port: 8124
+http.vhosts: "*"
+http.corsdomain: "*"
+ws: true
+ws.port: 8125
+rpc.batch.limit: 500

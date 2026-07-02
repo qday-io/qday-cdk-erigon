@@ -1,4 +1,4 @@
-# Minimal Sovereign Chain (cdk-erigon only)
+# Minimal Validium Chain (cdk-erigon only)
 
 Standalone zkEVM L2 without L1, AggLayer, cdk-node, or cdk-dac.
 
@@ -7,17 +7,17 @@ Standalone zkEVM L2 without L1, AggLayer, cdk-node, or cdk-dac.
 The compose stack is split by role:
 
 - `docker-compose.yml` — **sequencer** node only (block producer + datastream server)
-- `compose.yml` — **RPC** node only (read-only, syncs from the sequencer datastream)
+- `docker-compose.rpc.yml` — **RPC** node + tx pool manager (read-only, syncs from the sequencer datastream)
 
 ```bash
-cd zk/examples/dynamic-configs
+cd qday/dynamic-configs
 cp .env.example .env
 
 # Sequencer host
 docker compose up                     # uses docker-compose.yml by default
 
 # RPC host (set SEQUENCER_DATASTREAMER_URL in .env to the sequencer endpoint)
-docker compose -f compose.yml up
+docker compose -f docker-compose.rpc.yml up
 ```
 
 When the RPC node runs on the same host as the sequencer, the default
@@ -27,12 +27,12 @@ If `auth.docker.io ... i/o timeout`, use **native run** (no Docker):
 
 ```bash
 # Terminal 1 — sequencer
-chmod +x zk/examples/dynamic-configs/start-sequencer.sh
-./zk/examples/dynamic-configs/start-sequencer.sh
+chmod +x qday/dynamic-configs/start-sequencer.sh
+./qday/dynamic-configs/start-sequencer.sh
 
 # Terminal 2 — RPC (after sequencer is up)
-chmod +x zk/examples/dynamic-configs/start-rpc.sh
-./zk/examples/dynamic-configs/start-rpc.sh
+chmod +x qday/dynamic-configs/start-rpc.sh
+./qday/dynamic-configs/start-rpc.sh
 ```
 
 ## Start sequencer
@@ -41,14 +41,14 @@ chmod +x zk/examples/dynamic-configs/start-rpc.sh
 make cdk-erigon
 
 CDK_ERIGON_SEQUENCER=1 ./build/bin/cdk-erigon \
-  --config=./zk/examples/dynamic-configs/dynamic-sovereign.yaml
+  --config=./qday/dynamic-configs/dynamic-validium.yaml
 ```
 
-## Start RPC node (follows sovereign sequencer, no L1 required)
+## Start RPC node (follows validium sequencer, no L1 required)
 
 ```bash
 ./build/bin/cdk-erigon \
-  --config=./zk/examples/dynamic-configs/dynamic-sovereign-rpc.yaml
+  --config=./qday/dynamic-configs/dynamic-validium-rpc.yaml
 ```
 
 Point `zkevm.l2-datastreamer-url` to the sequencer's datastream endpoint

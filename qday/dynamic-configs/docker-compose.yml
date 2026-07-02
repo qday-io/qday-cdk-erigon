@@ -1,9 +1,9 @@
-# qday2-testnet — Sovereign L2 (no L1 required)
+# qday2-testnet — Validium L2 (no L1 required)
 #
 # Sequencer node only — sole block producer + datastream server.
 #   sequencer  — block producer + datastream server  (RPC :8123, datastream :6900)
 #
-# RPC nodes live in compose.yml and connect to this sequencer's datastream.
+# RPC nodes live in docker-compose.rpc.yml and connect to this sequencer's datastream.
 #
 # Setup:
 #   cp .env.example .env
@@ -29,13 +29,13 @@ services:
     environment:
       - CDK_ERIGON_SEQUENCER=1
     command:
-      - --config=/config/dynamic-sovereign.yaml
+      - --config=/config/dynamic-validium.yaml
       # override relative paths from yaml
       - --datadir=/data
       - --zkevm.initial-batch.config=/config/empty-batch.json
     volumes:
       - ./:/config:ro
-      - sequencer-data:/data
+      - ./datadir-validium:/data
     ports:
       - "${SEQUENCER_RPC_PORT:-8123}:8123"     # HTTP JSON-RPC + WebSocket
       - "${SEQUENCER_DATASTREAM_PORT:-6900}:6900" # Datastream (consumed by RPC nodes)
@@ -48,7 +48,3 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-
-volumes:
-  sequencer-data:
-    name: qday2-sequencer-data

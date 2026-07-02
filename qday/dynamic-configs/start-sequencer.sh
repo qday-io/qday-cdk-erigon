@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 if [[ ! -x "$ROOT/build/bin/cdk-erigon" ]]; then
@@ -11,6 +11,6 @@ fi
 
 export CDK_ERIGON_SEQUENCER=1
 exec "$ROOT/build/bin/cdk-erigon" \
-  --config="$ROOT/zk/examples/dynamic-configs/dynamic-sovereign.yaml" \
-  --datadir="$ROOT/datadir-sovereign" \
-  --zkevm.initial-batch.config="$ROOT/zk/examples/dynamic-configs/empty-batch.json"
+  --config="$ROOT/qday/dynamic-configs/dynamic-validium.yaml" \
+  --datadir="$ROOT/qday/dynamic-configs/datadir-validium" \
+  --zkevm.initial-batch.config="$ROOT/qday/dynamic-configs/empty-batch.json"

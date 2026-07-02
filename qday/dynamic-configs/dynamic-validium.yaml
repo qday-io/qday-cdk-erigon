@@ -1,0 +1,55 @@
+datadir: ./qday/dynamic-configs/datadir-validium
+chain: dynamic-qday2-testnet
+http: true
+
+zkevm.l2-chain-id: 44005
+
+# L1 / rollup — fill from deploy_output.json before disabling skip-l1-sync
+zkevm.l1-chain-id: 11155111
+zkevm.l1-rpc-url: "https://YOUR_L1_RPC_ENDPOINT"
+
+zkevm.address-sequencer: "0x0000000000000000000000000000000000000000"
+zkevm.address-zkevm: "0x0000000000000000000000000000000000000000"
+zkevm.address-rollup: "0x0000000000000000000000000000000000000000"
+zkevm.address-ger-manager: "0x0000000000000000000000000000000000000000"
+
+zkevm.l1-matic-contract-address: "0x0000000000000000000000000000000000000000"
+zkevm.l1-block-range: 20000
+zkevm.l1-query-delay: 6000
+zkevm.l1-first-block: 1
+
+zkevm.l1-contract-address-check: false
+zkevm.l1-contract-address-retrieve: false
+zkevm.l1-cache-enabled: false
+
+# Standalone validium bootstrap (current):
+#   zkevm.skip-l1-sync: true
+#   zkevm.initial-fork-id: 12
+# Real L1 connection — set skip-l1-sync to false (or remove; default is false),
+# and remove initial-fork-id (only used without L1; fork history comes from L1 sync).
+zkevm.skip-l1-sync: true
+zkevm.initial-fork-id: 12
+
+zkevm.allow-free-transactions: false
+
+zkevm.executor-strict: false
+zkevm.disable-virtual-counters: true
+zkevm.initial-batch.config: "./qday/dynamic-configs/empty-batch.json"
+
+zkevm.data-stream-port: 6900
+zkevm.data-stream-host: "0.0.0.0"
+zkevm.datastream-version: 2
+
+zkevm.sequencer-block-seal-time: "5s"
+zkevm.sequencer-batch-seal-time: "15m"
+zkevm.allow-pre-eip155-transactions: true
+
+zkevm.default-gas-price: 1000000000
+
+http.api: [eth, debug, net, trace, web3, erigon, txpool, zkevm]
+http.addr: "0.0.0.0"
+http.port: 8123
+http.vhosts: "*"
+http.corsdomain: "*"
+ws: true
+rpc.batch.limit: 500
