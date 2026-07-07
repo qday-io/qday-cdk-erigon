@@ -1,0 +1,122 @@
+# qday2-testnet — Validium L2 (zkrollup, external L1 + cdk-node)
+#
+# RPC node + tx pool manager. The RPC node is read-only (no txpool); incoming
+# transactions are redirected to the pool manager, which queues them in its own
+# Postgres DB and forwards them to the sequencer.
+#
+#   rpc              — read-only RPC node, syncs from sequencer datastream  (RPC :8124)
+#   tx-pool-manager  — zkevm-pool-manager, accepts txs and forwards to sequencer (:8546)
+#   pool-db          — Postgres backing store for the pool manager
+#
+#   client -> rpc (eth_sendRawTransaction) -> tx-pool-manager -> sequencer
+#
+# The sequencer runs separately (see docker-compose.yml). Point this stack at:
+#   SEQUENCER_DATASTREAMER_URL  <sequencer-host>:<datastream-port>   (sync blocks)
+#   SEQUENCER_RPC_URL           http://<sequencer-host>:<rpc-port>   (forward txs)
+#
+# Setup:
+#   cp .env.example .env
+#   # set SEQUENCER_DATASTREAMER_URL and SEQUENCER_RPC_URL to the sequencer
+#   docker compose -f docker-compose.rpc.yml pull
+#   docker compose -f docker-compose.rpc.yml up
+#
+# With Blockscout explorer (server 02):
+#   docker compose -f docker-compose.rpc.yml -f docker-compose.blockscout.yml up
+
+x-cdk-erigon-base: &cdk-erigon-base
+  image: ${CDK_ERIGON_IMAGE}
+  restart: unless-stopped
+  mem_swappiness: 0
+  # entrypoint chowns /data then drops to erigon (UID 1000)
+  user: root
+  entrypoint: ["/bin/sh", "/config/docker-entrypoint.sh"]
+
+services:
+  # ─────────────────────────────────────────────
+  #  RPC Node — read-only, syncs from sequencer
+  #  Does NOT produce blocks; safe to scale
+  # ─────────────────────────────────────────────
+  rpc:
+    <<: *cdk-erigon-base
+    container_name: qday2-rpc
+    command:
+      - --config=/config/dynamic-validium-rpc.yaml
+      # override relative paths and point datastream at the sequencer
+      - --datadir=/data
+      # external L1 endpoint (overrides yaml; sourced from .env)
+      - --zkevm.l1-rpc-url=${L1_RPC_URL:-http://host.docker.internal:31337}
+      - --zkevm.l1-chain-id=${L1_CHAIN_ID:-31337}
+      # datastream URL — used to SYNC blocks from the sequencer
+      - --zkevm.l2-datastreamer-url=${SEQUENCER_DATASTREAMER_URL:-host.docker.internal:6900}
+      # sequencer RPC URL — used to FORWARD transactions to the sequencer
+      - --zkevm.l2-sequencer-rpc-url=${SEQUENCER_RPC_URL:-http://host.docker.internal:8123}
+      # disable the local txpool; the RPC node does not pool/seal txs
+      - --txpool.disable=true
+      # redirect eth_sendRawTransaction to the pool manager
+      - --zkevm.pool-manager-url=${POOL_MANAGER_URL:-http://tx-pool-manager:8545}
+    extra_hosts:
+      # allow host.docker.internal to resolve to the Docker host (Linux)
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./:/config:ro
+      - ./datadir-validium-rpc:/data
+    ports:
+      - "${RPC_PORT:-8124}:8124"               # HTTP JSON-RPC + WebSocket
+    depends_on:
+      tx-pool-manager:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "sh", "-c",
+        "curl -sf -X POST http://localhost:8124 -H 'Content-Type: application/json' \
+         -d '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' \
+         | grep -q result"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  # ─────────────────────────────────────────────
+  #  Tx Pool Manager — accepts txs from the RPC
+  #  node and forwards them to the sequencer
+  # ─────────────────────────────────────────────
+  tx-pool-manager:
+    image: ${POOL_MANAGER_IMAGE:-hermeznetwork/zkevm-pool-manager:v0.1.2}
+    container_name: qday2-tx-pool-manager
+    restart: unless-stopped
+    # image CMD references a wrong binary name; invoke the binary explicitly
+    entrypoint: ["/app/zkevm-pool-manager"]
+    command: ["run", "--cfg", "/app/poolmanager.toml"]
+    environment:
+      # forward queued txs to the sequencer's HTTP RPC
+      - ZKEVM_POOL_MANAGER_SENDER_SEQUENCERURL=${SEQUENCER_RPC_URL:-http://host.docker.internal:8123}
+      - ZKEVM_POOL_MANAGER_MONITOR_L2NODEURL=${SEQUENCER_RPC_URL:-http://host.docker.internal:8123}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./poolmanager.toml:/app/poolmanager.toml:ro
+    ports:
+      - "${POOL_MANAGER_PORT:-8546}:8545"      # JSON-RPC (eth_sendRawTransaction)
+    depends_on:
+      pool-db:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────────
+  #  Pool DB — Postgres backing store for the
+  #  pool manager
+  # ─────────────────────────────────────────────
+  pool-db:
+    image: postgres:15
+    container_name: qday2-pool-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=pool_user
+      - POSTGRES_PASSWORD=pool_password
+      - POSTGRES_DB=pool_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d pool_db -U pool_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./data/pool-db:/var/lib/postgresql/data
+    command: ["postgres", "-N", "500"]
