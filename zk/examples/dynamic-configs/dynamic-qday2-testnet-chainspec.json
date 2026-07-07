@@ -1,5 +1,5 @@
 {
-  "ChainName": "qday2-testnet",
+  "ChainName": "dynamic-qday2-testnet",
   "chainId": 44005,
   "consensus": "ethash",
   "homesteadBlock": 0,
