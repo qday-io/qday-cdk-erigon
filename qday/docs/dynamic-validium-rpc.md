@@ -53,7 +53,7 @@ Same semantics as the sequencer config — see [dynamic-validium.md](./dynamic-v
 | Field | Current value | Notes |
 |-------|---------------|-------|
 | `zkevm.l1-chain-id` | `31337` | Overridden by compose from `L1_CHAIN_ID` in `.env` |
-| `zkevm.l1-rpc-url` | `http://host.docker.internal:31337` | Overridden by compose from `L1_RPC_URL` in `.env`; required when connected to L1 |
+| `zkevm.l1-rpc-url` | `http://host.docker.internal:1545` | Overridden by compose from `L1_RPC_URL` in `.env`; required when connected to L1 |
 | `zkevm.l1-first-block` | `88224` | Set to rollup start block when connected to L1 |
 | `zkevm.l1-block-range` | `20000` | Same as sequencer |
 | `zkevm.l1-query-delay` | `6000` | Same as sequencer |

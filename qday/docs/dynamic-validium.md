@@ -48,7 +48,7 @@ cd qday/dynamic-configs && docker compose up
 | Field | Purpose | Code default | Current value | When to use |
 |-------|---------|--------------|---------------|-------------|
 | `zkevm.l1-chain-id` | L1 chain ID | `0` | `31337` | Required when connected to L1; overridden by compose from `L1_CHAIN_ID` in `.env` |
-| `zkevm.l1-rpc-url` | L1 JSON-RPC endpoint | `""` | `http://host.docker.internal:31337` | Sync batches and read contract events; overridden by compose from `L1_RPC_URL` in `.env` |
+| `zkevm.l1-rpc-url` | L1 JSON-RPC endpoint | `""` | `http://host.docker.internal:1545` | Sync batches and read contract events; overridden by compose from `L1_RPC_URL` in `.env` |
 | `zkevm.l1-first-block` | First L1 block to sync the rollup from | `0` | `88224` | Set to the L1 block where the rollup starts; for AggLayer networks, use the GER Manager deployment block |
 | `zkevm.l1-block-range` | Block range per L1 query | `20000` | `20000` | Larger values speed sync but may hit RPC rate limits |
 | `zkevm.l1-query-delay` | Delay between L1 queries (ms) | `6000` | `6000` | Increase if the L1 RPC is rate-limited |

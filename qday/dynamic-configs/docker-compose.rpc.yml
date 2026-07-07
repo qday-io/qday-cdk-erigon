@@ -44,7 +44,7 @@ services:
       # override relative paths and point datastream at the sequencer
       - --datadir=/data
       # external L1 endpoint (overrides yaml; sourced from .env)
-      - --zkevm.l1-rpc-url=${L1_RPC_URL:-http://host.docker.internal:31337}
+      - --zkevm.l1-rpc-url=${L1_RPC_URL:-http://host.docker.internal:1545}
       - --zkevm.l1-chain-id=${L1_CHAIN_ID:-31337}
       # datastream URL — used to SYNC blocks from the sequencer
       - --zkevm.l2-datastreamer-url=${SEQUENCER_DATASTREAMER_URL:-host.docker.internal:6900}

@@ -6,7 +6,7 @@ zkevm.l2-chain-id: 44005
 
 # L1 / rollup — fill from deploy_output.json before disabling skip-l1-sync
 zkevm.l1-chain-id: 31337
-zkevm.l1-rpc-url: "http://host.docker.internal:31337"
+zkevm.l1-rpc-url: "http://host.docker.internal:1545"
 
 zkevm.address-sequencer: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 zkevm.address-zkevm: "0x24B3c7704709ed1491473F30393FFc93cFB0FC34"
