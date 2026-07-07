@@ -1,6 +1,15 @@
-# Minimal Validium Chain (cdk-erigon only)
+# Validium Chain (cdk-erigon only; external L1 + cdk-node)
 
-Standalone zkEVM L2 without L1, AggLayer, cdk-node, or cdk-dac.
+zkEVM L2 that settles to an external L1 and is orchestrated by an external cdk-node, deployed by other projects. This stack runs the cdk-erigon sequencer + RPC node (+ optional tx pool manager) and does **not** include cdk-dac or AggLayer.
+
+## Prerequisites (external projects)
+
+Before starting this stack, the following must already be running and reachable:
+
+- **L1** — an EVM L1 with the CDK rollup contracts deployed (rollup manager, zkevm, sequencer, GER manager, POL token). Note its JSON-RPC endpoint and chain id for `.env` (`L1_RPC_URL`, `L1_CHAIN_ID`), and copy the contract addresses + `l1-first-block` from its `deploy_output.json` / `create_rollup_output.json` into both yaml configs.
+- **cdk-node** — the Polygon CDK node that consumes the sequencer's datastream (`:6900`) and posts batches to the L1. It is operated externally; no configuration is required in this repo beyond exposing the sequencer datastream + RPC to it.
+
+This stack does **not** run cdk-dac (data availability is on L1 via cdk-node) or AggLayer (settlement is direct to L1).
 
 ## Docker Compose
 
@@ -44,7 +53,7 @@ CDK_ERIGON_SEQUENCER=1 ./build/bin/cdk-erigon \
   --config=./qday/dynamic-configs/dynamic-validium.yaml
 ```
 
-## Start RPC node (follows validium sequencer, no L1 required)
+## Start RPC node (follows the sequencer datastream; also syncs L1)
 
 ```bash
 ./build/bin/cdk-erigon \
@@ -93,8 +102,7 @@ Pool manager config lives in `poolmanager.toml`; `Sender.SequencerURL` /
 
 ## Key flags
 
-- `zkevm.skip-l1-sync: true` — disable all L1 sync stages (sequencer **and** RPC node)
-- `zkevm.initial-fork-id: 12` — bootstrap fork history locally (required with skip-l1-sync)
+- `zkevm.skip-l1-sync: false` — L1 sync is enabled; the node reads batches / fork history from the external L1. Set to `true` only for standalone dev without an L1 (then also set `zkevm.initial-fork-id: 12`).
 - `zkevm.executor-strict: false` — no zkevm-prover/executor required (sequencer only)
 
 ## RPC

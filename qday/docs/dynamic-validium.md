@@ -20,9 +20,9 @@ cd qday/dynamic-configs && docker compose up
 
 | Scenario | Key settings |
 |----------|--------------|
-| **Local standalone (current default)** | `zkevm.skip-l1-sync: true` + `zkevm.initial-fork-id: 12` — no real L1 or prover required |
-| **Real L1 connection** | Fill in L1 / contract addresses, set `zkevm.skip-l1-sync: false` (or remove it), remove `zkevm.initial-fork-id` |
-| **Docker deployment** | Compose overrides `--datadir=/data` and `--zkevm.initial-batch.config=/config/empty-batch.json` |
+| **External L1 + cdk-node (current default)** | `zkevm.skip-l1-sync: false`, L1 addresses filled from `deploy_output.json` / `create_rollup_output.json`, `L1_RPC_URL` / `L1_CHAIN_ID` in `.env` |
+| **Local standalone (no L1)** | `zkevm.skip-l1-sync: true` + `zkevm.initial-fork-id: 12` — no real L1 or prover required |
+| **Docker deployment** | Compose overrides `--datadir=/data` and `--zkevm.initial-batch.config=/config/empty-batch.json`, and passes `--zkevm.l1-rpc-url` / `--zkevm.l1-chain-id` from `.env` |
 | **With executor verification** | Set `zkevm.executor-urls` and `zkevm.executor-strict: true` |
 
 ---
@@ -47,13 +47,13 @@ cd qday/dynamic-configs && docker compose up
 
 | Field | Purpose | Code default | Current value | When to use |
 |-------|---------|--------------|---------------|-------------|
-| `zkevm.l1-chain-id` | L1 chain ID | `0` | `11155111` (Sepolia) | Required when connected to L1; ignored in standalone mode |
-| `zkevm.l1-rpc-url` | L1 JSON-RPC endpoint | `""` | Placeholder URL | Sync batches and read contract events; prefer a dedicated RPC |
-| `zkevm.l1-first-block` | First L1 block to sync the rollup from | `0` | `1` (placeholder) | Set to the L1 block where the rollup starts; for AggLayer networks, use the GER Manager deployment block |
+| `zkevm.l1-chain-id` | L1 chain ID | `0` | `31337` | Required when connected to L1; overridden by compose from `L1_CHAIN_ID` in `.env` |
+| `zkevm.l1-rpc-url` | L1 JSON-RPC endpoint | `""` | `http://host.docker.internal:31337` | Sync batches and read contract events; overridden by compose from `L1_RPC_URL` in `.env` |
+| `zkevm.l1-first-block` | First L1 block to sync the rollup from | `0` | `88224` | Set to the L1 block where the rollup starts; for AggLayer networks, use the GER Manager deployment block |
 | `zkevm.l1-block-range` | Block range per L1 query | `20000` | `20000` | Larger values speed sync but may hit RPC rate limits |
 | `zkevm.l1-query-delay` | Delay between L1 queries (ms) | `6000` | `6000` | Increase if the L1 RPC is rate-limited |
 | `zkevm.l1-cache-enabled` | Enable L1 request cache | `false` | `false` | Set to `true` when many repeated L1 lookups occur |
-| `zkevm.l1-contract-address-check` | Validate L1 contract addresses at startup | `true` | `false` | Use `false` in standalone mode or with placeholder addresses |
+| `zkevm.l1-contract-address-check` | Validate L1 contract addresses at startup | `true` | `false` | Set to `true` to validate the addresses against L1 at startup |
 | `zkevm.l1-contract-address-retrieve` | Fetch contract addresses from L1 automatically | `true` | `false` | Set to `false` when addresses are fixed in the yaml |
 
 ### L1 Contract Addresses
@@ -62,18 +62,20 @@ See the repo README: values come from `deploy_output.json` / `create_rollup_outp
 
 | Field | Purpose | Code default | Current value | Deploy mapping |
 |-------|---------|--------------|---------------|----------------|
-| `zkevm.address-sequencer` | Sequencer contract address | `""` | `0x000…000` (placeholder) | `create_rollup_output.json` → `sequencer` |
-| `zkevm.address-zkevm` | Rollup logic contract address | `""` | `0x000…000` (placeholder) | `create_rollup_output.json` → `rollupAddress` |
-| `zkevm.address-rollup` | Rollup Manager address | `""` | `0x000…000` (placeholder) | `deploy_output.json` → `polygonRollupManagerAddress` |
-| `zkevm.address-ger-manager` | Global Exit Root Manager address | `""` | `0x000…000` (placeholder) | `deploy_output.json` → `polygonZkEVMGlobalExitRootAddress` |
-| `zkevm.l1-matic-contract-address` | L1 Matic / POL token contract | `0x0` | `0x000…000` (placeholder) | Set per L1 network |
+| `zkevm.address-sequencer` | Sequencer contract address | `""` | `0xf39Fd6…2266` | `create_rollup_output.json` → `sequencer` |
+| `zkevm.address-zkevm` | Rollup logic contract address | `""` | `0x24B3c7…0FC34` | `create_rollup_output.json` → `rollupAddress` |
+| `zkevm.address-rollup` | Rollup Manager address | `""` | `0x959922…07B1` | `deploy_output.json` → `polygonRollupManagerAddress` |
+| `zkevm.address-ger-manager` | Global Exit Root Manager address | `""` | `0xB7f8BC…84F5e` | `deploy_output.json` → `polygonZkEVMGlobalExitRootAddress` |
+| `zkevm.l1-matic-contract-address` | L1 Matic / POL token contract | `0x0` | `0x9fE467…a6e0` | Set per L1 network |
+
+> The values above are from the external L1 deploy. Replace them with your deploy's output if you point at a different L1.
 
 ### Standalone vs L1 Mode
 
-| Field | Purpose | Code default | Standalone value | Real L1 value |
-|-------|---------|--------------|------------------|---------------|
-| `zkevm.skip-l1-sync` | Skip all L1 sync stages | `false` | `true` | `false` (or remove the field) |
-| `zkevm.initial-fork-id` | Fork ID for local bootstrap without L1 | `0` | `12` | Remove (fork history comes from L1 sync) |
+| Field | Purpose | Code default | External L1 (current) | Local standalone |
+|-------|---------|--------------|------------------------|-------------------|
+| `zkevm.skip-l1-sync` | Skip all L1 sync stages | `false` | `false` (or remove the field) | `true` |
+| `zkevm.initial-fork-id` | Fork ID for local bootstrap without L1 | `0` | unset (fork history comes from L1 sync) | `12` |
 
 > When `skip-l1-sync: true`, `initial-fork-id` must be non-zero or the node panics at startup.
 

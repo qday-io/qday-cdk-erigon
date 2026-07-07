@@ -22,11 +22,11 @@ cd qday/dynamic-configs && docker compose -f docker-compose.rpc.yml up
 
 | Scenario | Key settings |
 |----------|--------------|
-| **Local standalone RPC** | `zkevm.skip-l1-sync: true`, connect to local sequencer via `zkevm.l2-datastreamer-url` |
+| **External L1 + cdk-node (current default)** | `zkevm.skip-l1-sync: false`, L1 addresses filled from `deploy_output.json` / `create_rollup_output.json`, `L1_RPC_URL` / `L1_CHAIN_ID` in `.env` |
+| **Local standalone RPC** | `zkevm.skip-l1-sync: true` + `zkevm.initial-fork-id: 12`, connect to local sequencer via `zkevm.l2-datastreamer-url` |
 | **Remote sequencer** | Point `l2-datastreamer-url` / `l2-sequencer-rpc-url` at the sequencer host |
 | **Sequencer + RPC on same host** | Use distinct `http.port`, `private.api.addr`, `torrent.port` to avoid conflicts |
-| **Docker + pool manager** | Compose sets `txpool.disable: true` and `zkevm.pool-manager-url` to forward txs to the pool manager |
-| **Real L1 connection** | Fill in L1 / contract addresses, set `zkevm.skip-l1-sync: false` (or remove it), remove `zkevm.initial-fork-id` |
+| **Docker + pool manager** | Compose sets `txpool.disable: true` and `zkevm.pool-manager-url` to forward txs to the pool manager; also passes `--zkevm.l1-rpc-url` / `--zkevm.l1-chain-id` from `.env` |
 
 ---
 
@@ -52,22 +52,22 @@ Same semantics as the sequencer config — see [dynamic-validium.md](./dynamic-v
 
 | Field | Current value | Notes |
 |-------|---------------|-------|
-| `zkevm.l1-chain-id` | `11155111` | Ignored in standalone mode |
-| `zkevm.l1-rpc-url` | Placeholder URL | Required when connected to L1 |
-| `zkevm.l1-first-block` | `1` (placeholder) | Set to rollup start block when connected to L1 |
+| `zkevm.l1-chain-id` | `31337` | Overridden by compose from `L1_CHAIN_ID` in `.env` |
+| `zkevm.l1-rpc-url` | `http://host.docker.internal:31337` | Overridden by compose from `L1_RPC_URL` in `.env`; required when connected to L1 |
+| `zkevm.l1-first-block` | `88224` | Set to rollup start block when connected to L1 |
 | `zkevm.l1-block-range` | `20000` | Same as sequencer |
 | `zkevm.l1-query-delay` | `6000` | Same as sequencer |
 | `zkevm.l1-cache-enabled` | `false` | Same as sequencer |
-| `zkevm.l1-contract-address-check` | `false` | Same as sequencer |
+| `zkevm.l1-contract-address-check` | `false` | Set to `true` to validate addresses at startup |
 | `zkevm.l1-contract-address-retrieve` | `false` | Same as sequencer |
-| `zkevm.address-*` / `zkevm.l1-matic-contract-address` | `0x000…000` (placeholder) | Fill from deploy output |
+| `zkevm.address-*` / `zkevm.l1-matic-contract-address` | filled from external L1 deploy | Paste from `deploy_output.json` / `create_rollup_output.json` |
 
 ### Standalone vs L1 Mode
 
-| Field | Purpose | Code default | Standalone value | Real L1 value |
-|-------|---------|--------------|------------------|---------------|
-| `zkevm.skip-l1-sync` | Skip L1 sync; sync from datastream only | `false` | `true` | `false` (or remove the field) |
-| `zkevm.initial-fork-id` | Fork ID for local bootstrap without L1 | `0` | `12` | Remove |
+| Field | Purpose | Code default | External L1 (current) | Local standalone |
+|-------|---------|--------------|------------------------|-------------------|
+| `zkevm.skip-l1-sync` | Skip L1 sync; sync from datastream only | `false` | `false` (or remove the field) | `true` |
+| `zkevm.initial-fork-id` | Fork ID for local bootstrap without L1 | `0` | unset | `12` |
 
 ### Sequencer Connection (RPC core)
 
@@ -116,7 +116,7 @@ Docker compose (`docker-compose.rpc.yml`) overrides via environment variables:
 | Block / batch production | Yes | No |
 | Datastream server | Yes (`:6900`) | No (connects as client) |
 | Local txpool | Yes | No (forwards to sequencer or pool manager) |
-| L1 sync | Optional | Optional (usually skipped in standalone) |
+| L1 sync | Enabled (external L1) | Enabled (external L1) |
 | `zkevm.executor-*` | Yes | No |
 | `zkevm.data-stream-port/host` | Yes | No |
 

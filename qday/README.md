@@ -2,32 +2,46 @@
 
 QDay is a customizable CDK chain deployment based on cdk-erigon, a fork of Erigon optimized for Polygon Hermez zkEVM / Polygon CDK chains.
 
-This directory contains the complete configuration, documentation, and tooling for running the **qday2-testnet Validium** — a standalone zkEVM L2 that operates without an L1, AggLayer, cdk-node, or cdk-dac.
+This directory contains the complete configuration, documentation, and tooling for running the **qday2-testnet Validium** — a zkEVM L2 that settles to an external L1 and is orchestrated by an external cdk-node. The L1 and cdk-node are deployed and operated by other projects; this stack runs only the cdk-erigon side (sequencer + RPC node + tx pool manager) and does **not** include cdk-dac or AggLayer.
 
 ## Architecture
 
 ```
-┌──────────────────┐    datastream     ┌──────────────────────────┐
-│    Sequencer      │ ◄────:6900────── │      RPC Node            │
-│                   │                  │                          │
-│  Block producer   │                  │  Read-only queries        │
-│  Datastream server│                  │  Tx forwarding            │
-│  RPC :8123        │ ────tx fwd───►  │  Sync from datastream     │
-│  Txpool           │                  │  No local txpool          │
-└──────────────────┘                  └───────────┬──────────────┘
-                                                  │
-                                                  ▼
-                                        ┌──────────────────────┐
-                                        │  zkevm-pool-manager   │
-                                        │  (optional)           │
-                                        │  Queue & forward txs  │
-                                        └──────────────────────┘
+                          external projects (not in this repo)
+┌──────────────────────────────────────────────────────────────────┐
+│  L1 (chain id 31337)          cdk-node                            │
+│  - rollup manager             - consumes sequencer datastream     │
+│  - zkevm / sequencer ctrs     - posts batches to L1               │
+│  - GER manager                - syncs state from L1               │
+└──────────────▲───────────────────────▲───────────────────────────┘
+               │                       │ datastream :6900 / RPC :8123
+               │ batches               │
+┌──────────────┴───────────────────────┴───────────────────────────┐
+│                        this qday stack                           │
+│                                                                  │
+│  ┌──────────────────┐    datastream     ┌──────────────────────┐  │
+│  │    Sequencer      │ ◄────:6900────── │      RPC Node        │  │
+│  │                   │                  │                      │  │
+│  │  Block producer   │                  │  Read-only queries    │  │
+│  │  Datastream server│                  │  Tx forwarding        │  │
+│  │  RPC :8123        │ ────tx fwd───►  │  Sync from datastream │  │
+│  │  Txpool           │                  │  No local txpool      │  │
+│  └──────────────────┘                  └───────────┬──────────┘  │
+│                                                  │              │
+│                                                  ▼              │
+│                                        ┌──────────────────────┐ │
+│                                        │  zkevm-pool-manager   │ │
+│                                        │  (optional)           │ │
+│                                        │  Queue & forward txs  │ │
+│                                        └──────────────────────┘ │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 **Key design decisions:**
 
-- **Validium mode**: No L1 data availability — data is shared via the sequencer's datastream
-- **Skip L1 sync**: Both sequencer and RPC node bootstrap with `zkevm.skip-l1-sync: true` and `zkevm.initial-fork-id: 12`
+- **Rollup mode (no cdk-dac)**: Data availability is on the external L1 via cdk-node; no Data Availability Committee is used. The sequencer's datastream is the live block feed consumed by both RPC nodes and the cdk-node.
+- **Direct L1 settlement (no AggLayer)**: Batches settle to the external L1 rollup manager directly; the chain does not participate in AggLayer aggregation. The GER manager contract address is still configured on L1 for exit-root handling.
+- **External L1 + cdk-node**: The L1 chain and the cdk-node are deployed and operated by other projects. This stack only configures cdk-erigon to connect to them — fill in `L1_RPC_URL` / `L1_CHAIN_ID` in `.env` and paste the L1 contract addresses + `l1-first-block` from the external deploy's `deploy_output.json` / `create_rollup_output.json` into the two yaml configs.
 - **No external executor**: Uses virtual counters (`zkevm.disable-virtual-counters: true`) — no zkevm-prover required
 - **Port isolation**: RPC node uses distinct ports (`:8124`, `:9091`, etc.) to co-exist with sequencer on the same host
 
@@ -175,15 +189,23 @@ Both should return `{"jsonrpc":"2.0","id":1,"result":"0xabe5"}` (chainId 44005).
 ./qday/dynamic-configs/start-all.sh
 ```
 
-## Switching to Real L1 Mode
+## External L1 + cdk-node wiring
 
-To connect the testnet to a real L1 (e.g. Sepolia), edit both `dynamic-validium.yaml` and `dynamic-validium-rpc.yaml`:
+The stack defaults to connecting to an external L1 and external cdk-node (deployed by other projects). To point it at your external deployment:
 
-1. Set `zkevm.skip-l1-sync` to `false` (or remove the field)
-2. Remove `zkevm.initial-fork-id`
-3. Fill in real L1 contract addresses from `deploy_output.json` / `create_rollup_output.json`
-4. Set `zkevm.l1-rpc-url` to a real Sepolia RPC endpoint
-5. Set `zkevm.l1-contract-address-check` to `true` (optional, validates addresses at startup)
+1. In `.env`, set `L1_RPC_URL` to the external L1 JSON-RPC endpoint and `L1_CHAIN_ID` to the L1 chain id. (Compose passes both to cdk-erigon as command-line overrides.)
+2. In **both** `dynamic-validium.yaml` and `dynamic-validium-rpc.yaml`, paste the L1 contract addresses and `l1-first-block` from the external deploy's `deploy_output.json` / `create_rollup_output.json`:
+   - `zkevm.address-sequencer`, `zkevm.address-zkevm`, `zkevm.address-rollup`, `zkevm.address-ger-manager`, `zkevm.l1-matic-contract-address`, `zkevm.l1-first-block`
+3. Confirm `zkevm.skip-l1-sync: false` (already the default) and that `zkevm.initial-fork-id` is unset — fork history comes from L1 sync.
+4. Optionally set `zkevm.l1-contract-address-check: true` to validate the addresses at startup.
+
+### Falling back to standalone (no L1) mode
+
+To run the chain without the external L1 / cdk-node (e.g. for local dev), edit both `dynamic-validium.yaml` and `dynamic-validium-rpc.yaml`:
+
+1. Set `zkevm.skip-l1-sync: true`
+2. Set `zkevm.initial-fork-id: 12` (required when L1 sync is skipped)
+3. Ignore the L1 contract addresses / `l1-first-block` (they are not read)
 
 ## See Also
 

@@ -1,7 +1,11 @@
-# qday2-testnet — Validium L2 (no L1 required)
+# qday2-testnet — Validium L2 (zkrollup, external L1 + cdk-node)
 #
 # Sequencer node only — sole block producer + datastream server.
 #   sequencer  — block producer + datastream server  (RPC :8123, datastream :6900)
+#
+# Settles to an EXTERNAL L1 and is orchestrated by an EXTERNAL cdk-node
+# (both deployed by other projects). This stack runs neither cdk-dac nor AggLayer.
+# The cdk-node consumes the sequencer's datastream (:6900) and posts batches to L1.
 #
 # RPC nodes live in docker-compose.rpc.yml and connect to this sequencer's datastream.
 #
@@ -33,9 +37,16 @@ services:
       # override relative paths from yaml
       - --datadir=/data
       - --zkevm.initial-batch.config=/config/empty-batch.json
+      # external L1 endpoint (overrides yaml; sourced from .env)
+      - --zkevm.l1-rpc-url=${L1_RPC_URL:-http://host.docker.internal:31337}
+      - --zkevm.l1-chain-id=${L1_CHAIN_ID:-31337}
     volumes:
       - ./:/config:ro
       - ./datadir-validium:/data
+    extra_hosts:
+      # allow host.docker.internal to resolve to the Docker host (Linux)
+      # needed to reach the external L1 at host.docker.internal:<port>
+      - "host.docker.internal:host-gateway"
     ports:
       - "${SEQUENCER_RPC_PORT:-8123}:8123"     # HTTP JSON-RPC + WebSocket
       - "${SEQUENCER_DATASTREAM_PORT:-6900}:6900" # Datastream (consumed by RPC nodes)

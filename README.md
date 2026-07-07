@@ -233,7 +233,7 @@ Metrics and pprof configuration flags:
 
 ## QDay2 Testnet (Validium)
 
-See [`qday/`](qday/) for the QDay2 Testnet deployment — a standalone zkEVM Validium L2 that runs without L1, AggLayer, cdk-node, or cdk-dac. Includes:
+See [`qday/`](qday/) for the QDay2 Testnet deployment — a zkEVM Validium L2 that settles to an external L1 and is orchestrated by an external cdk-node (both deployed by other projects). The stack runs cdk-erigon only and does not include cdk-dac or AggLayer. Includes:
 
 - Ready-to-use config files for sequencer and RPC nodes
 - Docker Compose stacks (sequencer + RPC with pool manager)
