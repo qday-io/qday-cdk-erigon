@@ -15,7 +15,7 @@
 #   SEQUENCER_RPC_URL           http://<sequencer-host>:<rpc-port>   (forward txs)
 #
 # Setup:
-#   cp .env.example .env
+#   cp env.example .env
 #   # set SEQUENCER_DATASTREAMER_URL and SEQUENCER_RPC_URL to the sequencer
 #   docker compose -f docker-compose.rpc.yml pull
 #   docker compose -f docker-compose.rpc.yml up

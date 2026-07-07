@@ -56,7 +56,7 @@ qday/
 │   ├── troubleshooting.md                 ← Common issues and solutions
 │   └── upgrade-guide.md                   ← How to upgrade versions
 ├── dynamic-configs/
-│   ├── .env.example                       ← Docker environment template
+│   ├── env.example                        ← Docker environment template
 │   ├── README-validium.md                 ← Quick-start run guide
 │   ├── Dockerfile.local                   ← Build lightweight Docker image
 │   ├── docker-entrypoint.sh               ← Docker entrypoint (chown + drop user)
@@ -83,7 +83,7 @@ qday/
 
 ```bash
 cd qday/dynamic-configs
-cp .env.example .env
+cp env.example .env
 
 # Start sequencer
 docker compose up -d

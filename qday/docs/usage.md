@@ -26,15 +26,15 @@ This stack runs neither **cdk-dac** (data availability is on L1) nor **AggLayer*
 
 ```bash
 cd qday/dynamic-configs
-cp .env.example .env
+cp env.example .env
 ```
 
 **Purpose**: `.env` is auto-read by docker compose and parameterizes the image tag, host ports, and the two endpoints that point the RPC node at the sequencer.
 
 **Notes**:
 
-- The `cp` is required; compose does not read `.env.example` automatically.
-- If the RPC node and sequencer run on the **same host**, the defaults in `.env.example` (`SEQUENCER_DATASTREAMER_URL=host.docker.internal:6900`, `SEQUENCER_RPC_URL=http://host.docker.internal:8545`) work as-is. `host.docker.internal` resolves to the Docker host from inside the container.
+- The `cp` is required; compose does not read `env.example` automatically.
+- If the RPC node and sequencer run on the **same host**, the defaults in `env.example` (`SEQUENCER_DATASTREAMER_URL=host.docker.internal:6900`, `SEQUENCER_RPC_URL=http://host.docker.internal:8545`) work as-is. `host.docker.internal` resolves to the Docker host from inside the container.
 - If the RPC node runs on a **different host**, update the two values to the sequencer host's real address, e.g.:
   ```
   SEQUENCER_DATASTREAMER_URL=10.0.0.5:6900
@@ -194,7 +194,7 @@ curl -s -X POST -H "Content-Type: application/json" \
 
 ### Same host (default, simplest)
 
-The `.env.example` defaults work:
+The `env.example` defaults work:
 
 ```
 SEQUENCER_DATASTREAMER_URL=host.docker.internal:6900
@@ -261,7 +261,7 @@ More in [troubleshooting.md](./troubleshooting.md).
 
 ```bash
 # Prepare
-cp .env.example .env
+cp env.example .env
 docker compose pull
 docker compose -f docker-compose.rpc.yml pull
 

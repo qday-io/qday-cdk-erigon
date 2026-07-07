@@ -20,7 +20,7 @@ The compose stack is split by role:
 
 ```bash
 cd qday/dynamic-configs
-cp .env.example .env
+cp env.example .env
 
 # Sequencer host
 docker compose up                     # uses docker-compose.yml by default

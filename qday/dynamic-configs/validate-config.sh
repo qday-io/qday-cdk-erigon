@@ -43,7 +43,7 @@ declare -a REQUIRED_FILES=(
   "empty-batch.json"
   "docker-compose.yml"
   "docker-compose.rpc.yml"
-  ".env.example"
+  "env.example"
   "poolmanager.toml"
   "Dockerfile.local"
   "docker-entrypoint.sh"
@@ -229,7 +229,7 @@ if [[ -f .env ]]; then
   IMAGE=$(grep 'CDK_ERIGON_IMAGE=' .env | head -1 | cut -d'=' -f2-)
   pass ".env exists (image: ${IMAGE:-not set})"
 else
-  warn ".env not found — copy from .env.example: cp .env.example .env"
+  warn ".env not found — copy from env.example: cp env.example .env"
 fi
 
 echo ""
