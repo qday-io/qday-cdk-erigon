@@ -21,6 +21,7 @@ zkevm.l1-first-block: 88224
 zkevm.l1-contract-address-check: false
 zkevm.l1-contract-address-retrieve: false
 zkevm.l1-cache-enabled: false
+zkevm.allow-pre-eip155-transactions: true
 
 # Standalone validium RPC (current):
 #   zkevm.skip-l1-sync: true
