@@ -85,6 +85,7 @@
  },
  "0x5C68Bc17089AF0b422B682dA023A7aBAe120E4eD": {
   "contractName": null,
+  "accountName": "keyless Deployer",
   "balance": "0",
   "nonce": "1",
   "code": null,
@@ -92,16 +93,10 @@
  },
  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": {
   "contractName": null,
+  "accountName": "deployer",
   "balance": "100000000000000000000000",
   "nonce": "8",
   "code": null,
   "storage": null
- },
- "0xff6250d0E86A2465B0C1bF8e36409503d6a26963": {
-    "accountName": "deployer",
-    "balance": "100000000000000000000000",
-    "nonce": "8",
-    "code": null,
-    "storage": null
-  }
+ }
 }
