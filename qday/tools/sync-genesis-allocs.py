@@ -32,14 +32,14 @@ cdk-erigon loads the allocs file as a flat address -> account map (no wrapping
 
 Usage (from repo root or this directory):
 
-    ./qday/dynamic-configs/sync-genesis-allocs.py
-    ./qday/dynamic-configs/sync-genesis-allocs.py --dry-run
-    ./qday/dynamic-configs/sync-genesis-allocs.py \\
+    ./qday/tools/sync-genesis-allocs.py
+    ./qday/tools/sync-genesis-allocs.py --dry-run
+    ./qday/tools/sync-genesis-allocs.py \\
         --src /path/to/genesis.json \\
         --dest qday/dynamic-configs/dynamic-qday2-testnet-allocs.json
 
     # other allocs files (e.g. unwind test fixture):
-    ./qday/dynamic-configs/sync-genesis-allocs.py \\
+    ./qday/tools/sync-genesis-allocs.py \\
         --dest zk/tests/unwinds/config/dynamic-integration-allocs.json
 """
 
@@ -68,7 +68,7 @@ def _default_src() -> Path:
 
 
 DEFAULT_SRC = _default_src()
-DEFAULT_DEST = SCRIPT_DIR / "dynamic-qday2-testnet-allocs.json"
+DEFAULT_DEST = REPO_ROOT / "qday" / "dynamic-configs" / "dynamic-qday2-testnet-allocs.json"
 
 
 def _as_str(value) -> Optional[str]:
