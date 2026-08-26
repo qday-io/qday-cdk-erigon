@@ -10,12 +10,12 @@ elif command -v python >/dev/null 2>&1; then
   py=python
 fi
 if [ -z "$py" ]; then
-  echo "error: Python is not installed / 未检测到 Python。" >&2
-  echo "Please install Python 3 and retry / 请先安装 Python 3 后再运行此脚本。" >&2
+  echo "error: Python is not installed." >&2
+  echo "Please install Python 3 and retry." >&2
   exit 1
 fi
 if ! "$py" -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' >/dev/null 2>&1; then
-  echo "error: Python 3 is required, but '$py' is not Python 3 / 需要 Python 3，当前 '$py' 不是 Python 3。" >&2
+  echo "error: Python 3 is required, but '$py' is not Python 3." >&2
   exit 1
 fi
 exec "$py" "$0" "$@"
@@ -30,17 +30,15 @@ Polygon deploy output (qday-agglayer-contracts) looks like:
 cdk-erigon loads the allocs file as a flat address -> account map (no wrapping
 "alloc" key). See core/genesis_write_zkevm.go:dynamicPrealloc.
 
-Usage (from repo root or this directory):
+Usage (from repo root):
 
-    ./qday/tools/sync-genesis-allocs.py
-    ./qday/tools/sync-genesis-allocs.py --dry-run
     ./qday/tools/sync-genesis-allocs.py \\
         --src /path/to/genesis.json \\
         --dest qday/dynamic-configs/dynamic-qday2-testnet-allocs.json
 
-    # other allocs files (e.g. unwind test fixture):
-    ./qday/tools/sync-genesis-allocs.py \\
-        --dest zk/tests/unwinds/config/dynamic-integration-allocs.json
+    ./qday/tools/sync-genesis-allocs.py --dry-run \\
+        --src /path/to/genesis.json \\
+        --dest qday/dynamic-configs/dynamic-qday2-testnet-allocs.json
 """
 
 import argparse
@@ -51,24 +49,6 @@ from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parent.parent
-
-
-def _default_src() -> Path:
-    candidates = [
-        REPO_ROOT.parent / "qday-agglayer-contracts" / "qday" / "output" / "genesis.json",
-        Path("/Users/vikesun/workspace/QDAY2/qday-agglayer-contracts/qday/output/genesis.json"),
-    ]
-    for path in candidates:
-        if path.is_file():
-            return path
-    return candidates[0]
-
-
-DEFAULT_SRC = _default_src()
-DEFAULT_DEST = REPO_ROOT / "qday" / "dynamic-configs" / "dynamic-qday2-testnet-allocs.json"
 
 
 def _as_str(value) -> Optional[str]:
@@ -166,14 +146,14 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     p.add_argument(
         "--src",
         type=Path,
-        default=DEFAULT_SRC,
-        help="Polygon genesis.json (default: %(default)s)",
+        required=True,
+        help="Polygon CDK genesis.json (required)",
     )
     p.add_argument(
         "--dest",
         type=Path,
-        default=DEFAULT_DEST,
-        help="cdk-erigon allocs.json to overwrite (default: %(default)s)",
+        required=True,
+        help="cdk-erigon allocs.json to overwrite (required)",
     )
     p.add_argument(
         "--merge",
