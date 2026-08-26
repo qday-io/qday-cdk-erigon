@@ -503,6 +503,169 @@ func Test_OnlyOneBlockReturnedWithOneBlockInData(t *testing.T) {
 	}
 }
 
+func TestGetDecodedV_TypedTxYParity(t *testing.T) {
+	chainID := uint256.NewInt(44005)
+	to := common.HexToAddress("0x70997970c51812dc3a010c7d01b50e0d17dc79c8")
+
+	t.Run("dynamic fee v=0", func(t *testing.T) {
+		tx := newDynamicFeeTx(to, chainID, 0)
+		got := GetDecodedV(tx, uint256.NewInt(0))
+		require.Equal(t, uint64(27), got.Uint64())
+	})
+	t.Run("dynamic fee v=1", func(t *testing.T) {
+		tx := newDynamicFeeTx(to, chainID, 1)
+		got := GetDecodedV(tx, uint256.NewInt(1))
+		require.Equal(t, uint64(28), got.Uint64())
+	})
+	t.Run("already 27", func(t *testing.T) {
+		tx := newDynamicFeeTx(to, chainID, 0)
+		got := GetDecodedV(tx, uint256.NewInt(27))
+		require.Equal(t, uint64(27), got.Uint64())
+	})
+	t.Run("already 28", func(t *testing.T) {
+		tx := newDynamicFeeTx(to, chainID, 1)
+		got := GetDecodedV(tx, uint256.NewInt(28))
+		require.Equal(t, uint64(28), got.Uint64())
+	})
+	t.Run("nil v", func(t *testing.T) {
+		tx := newDynamicFeeTx(to, chainID, 0)
+		got := GetDecodedV(tx, nil)
+		require.Equal(t, uint64(27), got.Uint64())
+	})
+	t.Run("legacy eip-155 recId 0", func(t *testing.T) {
+		// V = chainId*2 + 35 + recId(0) = 88045
+		tx := newLegacyEIP155Tx(to, chainID, 88045)
+		got := GetDecodedV(tx, uint256.NewInt(88045))
+		require.Equal(t, uint64(27), got.Uint64())
+	})
+	t.Run("legacy eip-155 recId 1", func(t *testing.T) {
+		// V = chainId*2 + 35 + recId(1) = 88046
+		tx := newLegacyEIP155Tx(to, chainID, 88046)
+		got := GetDecodedV(tx, uint256.NewInt(88046))
+		require.Equal(t, uint64(28), got.Uint64())
+	})
+	t.Run("typed v=2 negative eip-155 fallback", func(t *testing.T) {
+		// v>1 is not y-parity or homestead V, so EIP-155 subtraction runs and
+		// goes negative on chain 44005; fallback is 27 + v%2.
+		tx := newDynamicFeeTx(to, chainID, 2)
+		got := GetDecodedV(tx, uint256.NewInt(2))
+		require.Equal(t, uint64(27), got.Uint64())
+	})
+	t.Run("typed v=3 negative eip-155 fallback", func(t *testing.T) {
+		tx := newDynamicFeeTx(to, chainID, 3)
+		got := GetDecodedV(tx, uint256.NewInt(3))
+		require.Equal(t, uint64(28), got.Uint64())
+	})
+}
+
+func TestTransactionToL2Data_DynamicFeeVIsOneByte(t *testing.T) {
+	to := common.HexToAddress("0x70997970c51812dc3a010c7d01b50e0d17dc79c8")
+	chainID := uint256.NewInt(44005)
+
+	for _, parity := range []uint64{0, 1} {
+		tx := newDynamicFeeTx(to, chainID, parity)
+		encoded, err := TransactionToL2Data(tx, 7, 255)
+		require.NoError(t, err)
+
+		requireBatchV2Signature(t, encoded, byte(27+parity))
+		requireDecodedEIP155V(t, encoded, chainID.Uint64(), parity)
+	}
+}
+
+func TestTransactionToL2Data_AccessListVIsOneByte(t *testing.T) {
+	to := common.HexToAddress("0x70997970c51812dc3a010c7d01b50e0d17dc79c8")
+	tx := &types.AccessListTx{
+		LegacyTx: types.LegacyTx{
+			CommonTx: types.CommonTx{
+				Nonce: 8,
+				Gas:   21000,
+				To:    &to,
+				Value: uint256.NewInt(1),
+				V:     *uint256.NewInt(0),
+				R:     *uint256.NewInt(1),
+				S:     *uint256.NewInt(1),
+			},
+			GasPrice: uint256.NewInt(1),
+		},
+		ChainID: uint256.NewInt(44005),
+	}
+
+	encoded, err := TransactionToL2Data(tx, 7, 255)
+	require.NoError(t, err)
+	requireBatchV2Signature(t, encoded, 27)
+	requireDecodedEIP155V(t, encoded, 44005, 0)
+}
+
+func newDynamicFeeTx(to common.Address, chainID *uint256.Int, yParity uint64) *types.DynamicFeeTransaction {
+	return &types.DynamicFeeTransaction{
+		CommonTx: types.CommonTx{
+			Nonce: 8,
+			Gas:   21000,
+			To:    &to,
+			Value: uint256.NewInt(1),
+			V:     *uint256.NewInt(yParity),
+			R:     *uint256.NewInt(1),
+			S:     *uint256.NewInt(1),
+		},
+		ChainID: chainID,
+		Tip:     uint256.NewInt(1),
+		FeeCap:  uint256.NewInt(1),
+	}
+}
+
+func newLegacyEIP155Tx(to common.Address, chainID *uint256.Int, v uint64) *types.LegacyTx {
+	return &types.LegacyTx{
+		CommonTx: types.CommonTx{
+			ChainID: chainID,
+			To:      &to,
+			V:       *uint256.NewInt(v),
+			R:       *uint256.NewInt(1),
+			S:       *uint256.NewInt(1),
+		},
+		GasPrice: uint256.NewInt(1),
+	}
+}
+
+func requireBatchV2Signature(t *testing.T, encoded []byte, wantV byte) {
+	t.Helper()
+	require.GreaterOrEqual(t, len(encoded), 66)
+	require.Equal(t, 2, signatureTailLen(t, encoded), "v must be 1 byte plus 1 byte efficiency")
+	require.Equal(t, wantV, encoded[len(encoded)-2], "batch v byte")
+	require.Equal(t, byte(255), encoded[len(encoded)-1], "efficiency percentage")
+}
+
+func requireDecodedEIP155V(t *testing.T, encoded []byte, chainID, recId uint64) {
+	t.Helper()
+	blocks, err := DecodeBatchL2Blocks(encoded, 7)
+	require.NoError(t, err, "encoded tx must be valid batch v2")
+	require.Len(t, blocks, 1)
+	require.Len(t, blocks[0].Transactions, 1)
+
+	gotV, _, _ := blocks[0].Transactions[0].RawSignatureValues()
+	wantV := chainID*2 + 35 + recId
+	require.Equal(t, wantV, gotV.Uint64(), "decoded EIP-155 V")
+}
+
+func signatureTailLen(t *testing.T, encoded []byte) int {
+	t.Helper()
+	require.NotEmpty(t, encoded)
+	num := uint64(encoded[0])
+	const (
+		c0    = 192
+		f7    = 247
+		short = 55
+	)
+	require.GreaterOrEqual(t, num, uint64(c0), "expected RLP list")
+	length := num - c0
+	if length > short {
+		nsize := num - f7
+		n := new(big.Int).SetBytes(encoded[1 : 1+nsize]).Uint64()
+		length = n + num - f7
+	}
+	rlpLen := int(length + 1)
+	return len(encoded) - rlpLen - 64
+}
+
 func Test_ComplexMixOfBlocks(t *testing.T) {
 	testData := "0b00000001000000010b00000002000000020b0000000300000003ed0985119a1c74008252089451c06a3e11b3b9540dbd3d1697508af105a4dd15880de0b6b3a76400008081ea80805949d75c266f9ac75b829c9cc0d5ce6519f7ef042c3f230589d56a43ca89c8240d69ce59e021384ad6c0c3c44c9008ea6a7e041a475364e5ec7c253e3bf4840b1bff0b0000000400000004"
 	decoded, err := hex.DecodeString(testData)

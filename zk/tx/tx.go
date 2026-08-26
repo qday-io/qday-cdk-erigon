@@ -340,17 +340,19 @@ func TransactionToL2Data(tx types.Transaction, forkId uint16, efficiencyPercenta
 		return nil, err
 	}
 
-	// reverse the eip-155 changes for the V value for transport
+	// reverse the eip-155 changes for the V value for transport.
+	// Batch V2 always uses a single byte (27 or 28), matching CDK DecodeBatchV2.
 	v = GetDecodedV(tx, v)
-	txV := new(big.Int).SetBytes(v.Bytes())
-
-	vBytes := txV.Bytes()
+	vByte, err := vByteForBatchL2(v)
+	if err != nil {
+		return nil, err
+	}
 	rBytes := r.Bytes32()
 	sBytes := s.Bytes32()
 
 	encoded = append(encoded, rBytes[:]...)
 	encoded = append(encoded, sBytes[:]...)
-	encoded = append(encoded, vBytes...)
+	encoded = append(encoded, vByte)
 
 	if forkId >= uint16(constants.ForkID5Dragonfruit) {
 		ep := hermez_db.Uint8ToBytes(efficiencyPercentage)
@@ -373,17 +375,64 @@ func removeLeadingZeroesFromBytes(source []byte) []byte {
 }
 
 func GetDecodedV(tx types.Transaction, v *uint256.Int) *uint256.Int {
+	if v == nil {
+		return uint256.NewInt(ether155V)
+	}
+
+	// Typed txs (EIP-2930 / 1559 / 4844) store y-parity as 0 or 1.
+	// CommonTx.Protected() is always true for those types, so the EIP-155
+	// subtraction below would go negative (e.g. chain 44005 + v=0 => -88018)
+	// and uint256.FromBig would wrap it to 32 bytes of 0xff.
+	if v.IsUint64() {
+		vu := v.Uint64()
+		if vu <= 1 {
+			return uint256.NewInt(ether155V + vu)
+		}
+		if vu == ether155V || vu == ether155V+1 {
+			return v
+		}
+	}
+
 	if !tx.Protected() {
 		return v
 	}
 
-	multiChain := new(big.Int).Mul(tx.GetChainID().ToBig(), big.NewInt(double))
+	chainID := tx.GetChainID()
+	if chainID == nil || chainID.IsZero() {
+		return v
+	}
+
+	multiChain := new(big.Int).Mul(chainID.ToBig(), big.NewInt(double))
 	plus155V := new(big.Int).Add(new(big.Int).SetBytes(v.Bytes()), big.NewInt(ether155V))
 	txV := new(big.Int).Sub(plus155V, multiChain)
 	txV = txV.Sub(txV, big.NewInt(etherPre155V))
 
-	result, _ := uint256.FromBig(txV)
+	if txV.Sign() < 0 {
+		if v.IsUint64() {
+			return uint256.NewInt(ether155V + v.Uint64()%2)
+		}
+		return uint256.NewInt(ether155V)
+	}
+
+	result, overflow := uint256.FromBig(txV)
+	if overflow || result == nil {
+		if v.IsUint64() {
+			return uint256.NewInt(ether155V + v.Uint64()%2)
+		}
+		return uint256.NewInt(ether155V)
+	}
 	return result
+}
+
+func vByteForBatchL2(v *uint256.Int) (byte, error) {
+	if v == nil || !v.IsUint64() {
+		return 0, fmt.Errorf("invalid batch v: value does not fit in 1 byte")
+	}
+	vu := v.Uint64()
+	if vu > 255 {
+		return 0, fmt.Errorf("invalid batch v: %d does not fit in 1 byte", vu)
+	}
+	return byte(vu), nil
 }
 
 type BatchTxData struct {
