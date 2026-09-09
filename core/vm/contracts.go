@@ -91,27 +91,29 @@ var PrecompiledContractsIstanbul = map[libcommon.Address]PrecompiledContract{
 // PrecompiledContractsBerlin contains the default set of pre-compiled Ethereum
 // contracts used in the Berlin release.
 var PrecompiledContractsBerlin = map[libcommon.Address]PrecompiledContract{
-	libcommon.BytesToAddress([]byte{1}): &ecrecover{},
-	libcommon.BytesToAddress([]byte{2}): &sha256hash{},
-	libcommon.BytesToAddress([]byte{3}): &ripemd160hash{},
-	libcommon.BytesToAddress([]byte{4}): &dataCopy{},
-	libcommon.BytesToAddress([]byte{5}): &bigModExp{eip2565: true},
-	libcommon.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	libcommon.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	libcommon.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
-	libcommon.BytesToAddress([]byte{9}): &blake2F{},
+	libcommon.BytesToAddress([]byte{1}):          &ecrecover{},
+	libcommon.BytesToAddress([]byte{2}):          &sha256hash{},
+	libcommon.BytesToAddress([]byte{3}):          &ripemd160hash{},
+	libcommon.BytesToAddress([]byte{4}):          &dataCopy{},
+	libcommon.BytesToAddress([]byte{5}):          &bigModExp{eip2565: true},
+	libcommon.BytesToAddress([]byte{6}):          &bn256AddIstanbul{},
+	libcommon.BytesToAddress([]byte{7}):          &bn256ScalarMulIstanbul{},
+	libcommon.BytesToAddress([]byte{8}):          &bn256PairingIstanbul{},
+	libcommon.BytesToAddress([]byte{9}):          &blake2F{},
+	libcommon.BytesToAddress([]byte{0x10, 0x00}): &pqcVerify{}, // 0x1000
 }
 
 var PrecompiledContractsCancun = map[libcommon.Address]PrecompiledContract{
-	libcommon.BytesToAddress([]byte{0x01}): &ecrecover{},
-	libcommon.BytesToAddress([]byte{0x02}): &sha256hash{},
-	libcommon.BytesToAddress([]byte{0x03}): &ripemd160hash{},
-	libcommon.BytesToAddress([]byte{0x04}): &dataCopy{},
-	libcommon.BytesToAddress([]byte{0x05}): &bigModExp{eip2565: true},
-	libcommon.BytesToAddress([]byte{0x06}): &bn256AddIstanbul{},
-	libcommon.BytesToAddress([]byte{0x07}): &bn256ScalarMulIstanbul{},
-	libcommon.BytesToAddress([]byte{0x08}): &bn256PairingIstanbul{},
-	libcommon.BytesToAddress([]byte{0x09}): &blake2F{},
+	libcommon.BytesToAddress([]byte{0x01}):       &ecrecover{},
+	libcommon.BytesToAddress([]byte{0x02}):       &sha256hash{},
+	libcommon.BytesToAddress([]byte{0x03}):       &ripemd160hash{},
+	libcommon.BytesToAddress([]byte{0x04}):       &dataCopy{},
+	libcommon.BytesToAddress([]byte{0x05}):       &bigModExp{eip2565: true},
+	libcommon.BytesToAddress([]byte{0x06}):       &bn256AddIstanbul{},
+	libcommon.BytesToAddress([]byte{0x07}):       &bn256ScalarMulIstanbul{},
+	libcommon.BytesToAddress([]byte{0x08}):       &bn256PairingIstanbul{},
+	libcommon.BytesToAddress([]byte{0x09}):       &blake2F{},
+	libcommon.BytesToAddress([]byte{0x10, 0x00}): &pqcVerify{}, // 0x1000
 	// Disable point evaluation precompile for L2
 	// libcommon.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
 }
@@ -127,28 +129,30 @@ var PrecompiledContractsNapoli = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{0x08}):       &bn256PairingIstanbul{},
 	libcommon.BytesToAddress([]byte{0x09}):       &blake2F{},
 	libcommon.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+	libcommon.BytesToAddress([]byte{0x10, 0x00}): &pqcVerify{}, // 0x1000
 }
 
 var PrecompiledContractsPrague = map[libcommon.Address]PrecompiledContract{
-	libcommon.BytesToAddress([]byte{0x01}): &ecrecover{},
-	libcommon.BytesToAddress([]byte{0x02}): &sha256hash{},
-	libcommon.BytesToAddress([]byte{0x03}): &ripemd160hash{},
-	libcommon.BytesToAddress([]byte{0x04}): &dataCopy{},
-	libcommon.BytesToAddress([]byte{0x05}): &bigModExp{eip2565: true},
-	libcommon.BytesToAddress([]byte{0x06}): &bn256AddIstanbul{},
-	libcommon.BytesToAddress([]byte{0x07}): &bn256ScalarMulIstanbul{},
-	libcommon.BytesToAddress([]byte{0x08}): &bn256PairingIstanbul{},
-	libcommon.BytesToAddress([]byte{0x09}): &blake2F{},
-	libcommon.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
-	libcommon.BytesToAddress([]byte{0x0b}): &bls12381G1Add{},
-	libcommon.BytesToAddress([]byte{0x0c}): &bls12381G1Mul{},
-	libcommon.BytesToAddress([]byte{0x0d}): &bls12381G1MultiExp{},
-	libcommon.BytesToAddress([]byte{0x0e}): &bls12381G2Add{},
-	libcommon.BytesToAddress([]byte{0x0f}): &bls12381G2Mul{},
-	libcommon.BytesToAddress([]byte{0x10}): &bls12381G2MultiExp{},
-	libcommon.BytesToAddress([]byte{0x11}): &bls12381Pairing{},
-	libcommon.BytesToAddress([]byte{0x12}): &bls12381MapFpToG1{},
-	libcommon.BytesToAddress([]byte{0x13}): &bls12381MapFp2ToG2{},
+	libcommon.BytesToAddress([]byte{0x01}):       &ecrecover{},
+	libcommon.BytesToAddress([]byte{0x02}):       &sha256hash{},
+	libcommon.BytesToAddress([]byte{0x03}):       &ripemd160hash{},
+	libcommon.BytesToAddress([]byte{0x04}):       &dataCopy{},
+	libcommon.BytesToAddress([]byte{0x05}):       &bigModExp{eip2565: true},
+	libcommon.BytesToAddress([]byte{0x06}):       &bn256AddIstanbul{},
+	libcommon.BytesToAddress([]byte{0x07}):       &bn256ScalarMulIstanbul{},
+	libcommon.BytesToAddress([]byte{0x08}):       &bn256PairingIstanbul{},
+	libcommon.BytesToAddress([]byte{0x09}):       &blake2F{},
+	libcommon.BytesToAddress([]byte{0x0a}):       &pointEvaluation{},
+	libcommon.BytesToAddress([]byte{0x0b}):       &bls12381G1Add{},
+	libcommon.BytesToAddress([]byte{0x0c}):       &bls12381G1Mul{},
+	libcommon.BytesToAddress([]byte{0x0d}):       &bls12381G1MultiExp{},
+	libcommon.BytesToAddress([]byte{0x0e}):       &bls12381G2Add{},
+	libcommon.BytesToAddress([]byte{0x0f}):       &bls12381G2Mul{},
+	libcommon.BytesToAddress([]byte{0x10}):       &bls12381G2MultiExp{},
+	libcommon.BytesToAddress([]byte{0x11}):       &bls12381Pairing{},
+	libcommon.BytesToAddress([]byte{0x12}):       &bls12381MapFpToG1{},
+	libcommon.BytesToAddress([]byte{0x13}):       &bls12381MapFp2ToG2{},
+	libcommon.BytesToAddress([]byte{0x10, 0x00}): &pqcVerify{}, // 0x1000
 }
 
 var (
@@ -1236,4 +1240,95 @@ func (c *p256Verify) Run(input []byte) ([]byte, error) {
 		// Signature is invalid
 		return nil, nil
 	}
+}
+
+// PQCVERIFY (post-quantum signature verification) at address 0x1000.
+//
+// Input layout (no length prefixes):
+//
+//	algName (8 bytes, big-endian uint64) || pubkey || signature || message
+//
+// pubkey and signature lengths are fixed per algorithm; message is the remainder.
+type pqcVerify struct{}
+
+const pqcAlgNameLen = 8
+
+const (
+	pqcAlgMLDSA44          uint64 = 1
+	pqcAlgMLDSA65          uint64 = 2
+	pqcAlgMLDSA87          uint64 = 3
+	pqcAlgFalcon512        uint64 = 7
+	pqcAlgFalcon1024       uint64 = 8
+	pqcAlgFalconPadded512  uint64 = 9
+	pqcAlgFalconPadded1024 uint64 = 10
+)
+
+// FIPS 204 / Falcon (PQClean) public-key and signature sizes.
+const (
+	pqcMLDSA44PkLen  = 1312
+	pqcMLDSA44SigLen = 2420
+	pqcMLDSA65PkLen  = 1952
+	pqcMLDSA65SigLen = 3309
+	pqcMLDSA87PkLen  = 2592
+	pqcMLDSA87SigLen = 4627
+
+	pqcFalcon512PkLen   = 897
+	pqcFalcon512SigLen  = 666
+	pqcFalcon1024PkLen  = 1793
+	pqcFalcon1024SigLen = 1280
+)
+
+func pqcPkSigLens(alg uint64) (pkLen, sigLen int, ok bool) {
+	switch alg {
+	case pqcAlgMLDSA44:
+		return pqcMLDSA44PkLen, pqcMLDSA44SigLen, true
+	case pqcAlgMLDSA65:
+		return pqcMLDSA65PkLen, pqcMLDSA65SigLen, true
+	case pqcAlgMLDSA87:
+		return pqcMLDSA87PkLen, pqcMLDSA87SigLen, true
+	case pqcAlgFalcon512, pqcAlgFalconPadded512:
+		return pqcFalcon512PkLen, pqcFalcon512SigLen, true
+	case pqcAlgFalcon1024, pqcAlgFalconPadded1024:
+		return pqcFalcon1024PkLen, pqcFalcon1024SigLen, true
+	default:
+		return 0, 0, false
+	}
+}
+
+func parsePqcVerifyInput(input []byte) (alg uint64, pubkey, message, signature []byte, ok bool) {
+	if len(input) < pqcAlgNameLen {
+		return 0, nil, nil, nil, false
+	}
+	alg = binary.BigEndian.Uint64(input[:pqcAlgNameLen])
+	pkLen, sigLen, known := pqcPkSigLens(alg)
+	if !known {
+		return 0, nil, nil, nil, false
+	}
+	minLen := pqcAlgNameLen + pkLen + sigLen
+	if len(input) < minLen {
+		return 0, nil, nil, nil, false
+	}
+	rest := input[pqcAlgNameLen:]
+	pubkey = rest[:pkLen]
+	signature = rest[pkLen : pkLen+sigLen]
+	message = rest[pkLen+sigLen:]
+	return alg, pubkey, message, signature, true
+}
+
+func (c *pqcVerify) RequiredGas(input []byte) uint64 {
+	return params.PqcVerifyGas
+}
+
+func (c *pqcVerify) Run(input []byte) ([]byte, error) {
+	alg, pubkey, message, signature, ok := parsePqcVerifyInput(input)
+	if !ok {
+		return nil, nil
+	}
+	// TODO(pqc): verify (alg, pubkey, message, signature) and return a
+	// 32-byte left-padded 0x01 on success. Invalid signatures return (nil, nil).
+	_ = alg
+	_ = pubkey
+	_ = message
+	_ = signature
+	return nil, nil
 }

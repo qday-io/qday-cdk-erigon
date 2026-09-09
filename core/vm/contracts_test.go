@@ -18,6 +18,7 @@ package vm
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -69,6 +70,7 @@ var allPrecompiles = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{18}):         &bls12381MapFp2ToG2{},
 	libcommon.BytesToAddress([]byte{20}):         &pointEvaluation{},
 	libcommon.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+	libcommon.BytesToAddress([]byte{0x10, 0x00}): &pqcVerify{},
 }
 
 // EIP-152 test vectors
@@ -416,4 +418,60 @@ func TestPrecompiledP256Verify(t *testing.T) {
 	t.Parallel()
 
 	testJson("p256Verify", "100", t)
+}
+
+func TestPrecompiledPqcVerify(t *testing.T) {
+	t.Parallel()
+
+	p := allPrecompiles[libcommon.BytesToAddress([]byte{0x10, 0x00})]
+	if p == nil {
+		t.Fatal("pqcVerify is not registered at 0x1000")
+	}
+	if gas := p.RequiredGas(nil); gas != 15000 {
+		t.Errorf("RequiredGas = %d, want 15000", gas)
+	}
+
+	encode := func(alg uint64, pkLen, msgLen, sigLen int) []byte {
+		in := make([]byte, pqcAlgNameLen+pkLen+msgLen+sigLen)
+		binary.BigEndian.PutUint64(in[:pqcAlgNameLen], alg)
+		return in
+	}
+
+	t.Run("malformed", func(t *testing.T) {
+		for _, in := range [][]byte{nil, {1, 2, 3}, encode(99, 0, 0, 0), encode(pqcAlgMLDSA44, 1, 0, 1)} {
+			res, _, err := RunPrecompiledContract(p, in, 15000)
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if len(res) != 0 {
+				t.Errorf("malformed input returned %x, want empty", res)
+			}
+		}
+	})
+
+	t.Run("parse", func(t *testing.T) {
+		in := encode(pqcAlgMLDSA44, pqcMLDSA44PkLen, 32, pqcMLDSA44SigLen)
+		in[pqcAlgNameLen] = 0xaa
+		in[pqcAlgNameLen+pqcMLDSA44PkLen] = 0xbb
+		in[len(in)-1] = 0xcc
+
+		alg, pk, msg, sig, ok := parsePqcVerifyInput(in)
+		if !ok {
+			t.Fatal("expected parse ok")
+		}
+		if alg != pqcAlgMLDSA44 {
+			t.Errorf("alg = %d, want %d", alg, pqcAlgMLDSA44)
+		}
+		if len(pk) != pqcMLDSA44PkLen || pk[0] != 0xaa {
+			t.Errorf("pubkey mismatch len=%d first=%x", len(pk), pk[0])
+		}
+		if len(sig) != pqcMLDSA44SigLen || sig[0] != 0xbb {
+			t.Errorf("signature mismatch len=%d first=%x", len(sig), sig[0])
+		}
+		if len(msg) != 32 || msg[len(msg)-1] != 0xcc {
+			t.Errorf("message mismatch len=%d last=%x", len(msg), msg[len(msg)-1])
+		}
+	})
+
+	// TODO(pqc): replace with testJson("pqcVerify", "1000", t) once verification is implemented.
 }

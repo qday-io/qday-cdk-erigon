@@ -96,6 +96,7 @@ var PrecompiledContractsForkID13Durian = map[libcommon.Address]PrecompiledContra
 	libcommon.BytesToAddress([]byte{8}):          &bn256PairingIstanbul_zkevm{enabled: true},
 	libcommon.BytesToAddress([]byte{9}):          &blake2F_zkevm{enabled: false},
 	libcommon.BytesToAddress([]byte{0x01, 0x00}): &p256Verify_zkevm{enabled: true},
+	libcommon.BytesToAddress([]byte{0x10, 0x00}): &pqcVerify_zkevm{enabled: true}, // 0x1000
 }
 
 // ECRECOVER implemented as a native contract.
@@ -1257,4 +1258,41 @@ func (c *p256Verify_zkevm) Run(input []byte) ([]byte, error) {
 		// Signature is invalid
 		return nil, nil
 	}
+}
+
+// PQCVERIFY (post-quantum signature verification) at address 0x1000.
+type pqcVerify_zkevm struct {
+	enabled bool
+	cc      *CounterCollector
+}
+
+func (c *pqcVerify_zkevm) SetCounterCollector(cc *CounterCollector) {
+	c.cc = cc
+}
+
+func (c *pqcVerify_zkevm) SetOutputLength(outLength int) {
+}
+
+func (c *pqcVerify_zkevm) RequiredGas(input []byte) uint64 {
+	if !c.enabled {
+		return 0
+	}
+	return params.PqcVerifyGas
+}
+
+func (c *pqcVerify_zkevm) Run(input []byte) ([]byte, error) {
+	if !c.enabled {
+		return nil, ErrUnsupportedPrecompile
+	}
+	alg, pubkey, message, signature, ok := parsePqcVerifyInput(input)
+	if !ok {
+		return nil, nil
+	}
+	// TODO(pqc): deduct zk counters via CounterCollector, then verify as in pqcVerify.Run.
+	_ = alg
+	_ = pubkey
+	_ = message
+	_ = signature
+	_ = c.cc
+	return nil, nil
 }
