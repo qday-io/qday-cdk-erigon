@@ -8,7 +8,8 @@ COPY scripts/install-liboqs.sh /tmp/install-liboqs.sh
 RUN sh /tmp/install-liboqs.sh
 ENV CGO_ENABLED=1 \
     PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
-    LD_LIBRARY_PATH=/usr/local/lib
+    LD_LIBRARY_PATH=/usr/local/lib \
+    GOPROXY=https://proxy.golang.org,direct
 
 ADD go.mod go.mod
 ADD go.sum go.sum
