@@ -1,17 +1,30 @@
 # Lightweight image: copies a locally built Linux binary (no in-docker Go compile).
 #
+# Build from the repo root (needs build/bin/cdk-erigon and scripts/install-liboqs.sh):
+#   docker build -f qday/dynamic-configs/Dockerfile.local -t qday-cdk-erigon:local .
+#
 # On macOS/Windows you must cross-compile for Linux before docker build:
 #   GOOS=linux GOARCH=arm64 make cdk-erigon   # Apple Silicon
 #   GOOS=linux GOARCH=amd64 make cdk-erigon   # Intel
+#
+# Runtime still needs liboqs 0.16 (same as compile). This image builds that
+# shared library in a small stage and copies it next to the binary.
 #
 # Requires Docker Hub access to pull alpine:3.17.
 # If Docker Hub is unreachable, run natively instead:
 #   ./start-sequencer.sh
 #   ./start-rpc.sh
 
+FROM alpine:3.17 AS liboqs
+RUN apk add --no-cache build-base cmake ninja openssl-dev git pkgconf
+COPY scripts/install-liboqs.sh /tmp/install-liboqs.sh
+RUN sh /tmp/install-liboqs.sh
+
 FROM alpine:3.17
 
-RUN apk add --no-cache ca-certificates libstdc++ tzdata curl
+RUN apk add --no-cache ca-certificates libstdc++ libcrypto3 tzdata curl
+COPY --from=liboqs /usr/local/lib/liboqs.so* /usr/local/lib/
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 ARG UID=1000
 ARG GID=1000

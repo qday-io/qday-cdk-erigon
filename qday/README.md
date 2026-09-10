@@ -94,8 +94,11 @@ docker compose -f docker-compose.rpc.yml up -d
 
 ### Native
 
+PQC support (`qday-pqc-sdk`) needs **liboqs 0.16** and **CGO_ENABLED=1** at compile and runtime. The Makefile exports `CGO_ENABLED=1` and pkg-config paths; install the C library once per machine:
+
 ```bash
-# Build the binary (from repo root)
+# from repo root
+./scripts/install-liboqs.sh   # Homebrew on macOS; source build 0.16.0 on Linux
 make cdk-erigon
 
 # Start both sequencer and RPC

@@ -2,9 +2,15 @@
 FROM docker.io/library/golang:1.21-bullseye AS builder
 
 RUN apt update
-RUN apt install -y build-essential git bash ca-certificates libstdc++6 libgmp-dev libomp-dev libgtest-dev
+RUN apt install -y build-essential git bash ca-certificates libstdc++6 libgmp-dev libomp-dev libgtest-dev cmake ninja-build libssl-dev pkg-config
 
 WORKDIR /app
+COPY scripts/install-liboqs.sh /tmp/install-liboqs.sh
+RUN sh /tmp/install-liboqs.sh
+ENV CGO_ENABLED=1 \
+    PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
+    LD_LIBRARY_PATH=/usr/local/lib
+
 ADD go.mod go.mod
 ADD go.sum go.sum
 
@@ -35,8 +41,11 @@ FROM docker.io/library/debian:bullseye
 
 # install required runtime libs, along with some helpers for debugging
 RUN apt update
-RUN apt install -y ca-certificates libstdc++6 tzdata
+RUN apt install -y ca-certificates libstdc++6 tzdata libssl1.1
 RUN apt install -y curl jq dnsutils
+COPY --from=builder /usr/local/lib/liboqs.so* /usr/local/lib/
+RUN ldconfig
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # Setup user and group
 #

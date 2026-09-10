@@ -39,6 +39,7 @@ import (
 	"github.com/ledgerwatch/erigon/crypto/bn256"
 	"github.com/ledgerwatch/erigon/crypto/secp256r1"
 	"github.com/ledgerwatch/erigon/params"
+	"github.com/qday-io/qday-pqc-sdk/pqc"
 
 	//lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
@@ -1278,6 +1279,27 @@ const (
 	pqcFalcon1024SigLen = 1280
 )
 
+func pqcAlgLiboqsName(alg uint64) (string, bool) {
+	switch alg {
+	case pqcAlgMLDSA44:
+		return pqc.AlgMLDSA44, true
+	case pqcAlgMLDSA65:
+		return pqc.AlgMLDSA65, true
+	case pqcAlgMLDSA87:
+		return pqc.AlgMLDSA87, true
+	case pqcAlgFalcon512:
+		return pqc.AlgFalcon512, true
+	case pqcAlgFalcon1024:
+		return pqc.AlgFalcon1024, true
+	case pqcAlgFalconPadded512:
+		return "Falcon-padded-512", true
+	case pqcAlgFalconPadded1024:
+		return "Falcon-padded-1024", true
+	default:
+		return "", false
+	}
+}
+
 func pqcPkSigLens(alg uint64) (pkLen, sigLen int, ok bool) {
 	switch alg {
 	case pqcAlgMLDSA44:
@@ -1320,15 +1342,21 @@ func (c *pqcVerify) RequiredGas(input []byte) uint64 {
 }
 
 func (c *pqcVerify) Run(input []byte) ([]byte, error) {
+	return runPqcVerify(input)
+}
+
+func runPqcVerify(input []byte) ([]byte, error) {
 	alg, pubkey, message, signature, ok := parsePqcVerifyInput(input)
 	if !ok {
 		return nil, nil
 	}
-	// TODO(pqc): verify (alg, pubkey, message, signature) and return a
-	// 32-byte left-padded 0x01 on success. Invalid signatures return (nil, nil).
-	_ = alg
-	_ = pubkey
-	_ = message
-	_ = signature
-	return nil, nil
+	name, ok := pqcAlgLiboqsName(alg)
+	if !ok {
+		return nil, nil
+	}
+	valid, err := pqc.Verify(name, message, signature, pubkey)
+	if err != nil || !valid {
+		return nil, nil
+	}
+	return common.LeftPadBytes(big1.Bytes(), 32), nil
 }

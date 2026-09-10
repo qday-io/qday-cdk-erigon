@@ -28,6 +28,7 @@ import (
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 
 	"github.com/ledgerwatch/erigon/common"
+	"github.com/qday-io/qday-pqc-sdk/pqc"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.
@@ -473,5 +474,50 @@ func TestPrecompiledPqcVerify(t *testing.T) {
 		}
 	})
 
-	// TODO(pqc): replace with testJson("pqcVerify", "1000", t) once verification is implemented.
+	t.Run("verify", func(t *testing.T) {
+		if !pqc.IsAlgorithmEnabled(pqc.AlgMLDSA44) {
+			t.Skip("liboqs ML-DSA-44 not enabled")
+		}
+		signer, err := pqc.Generate(pqc.AlgMLDSA44)
+		if err != nil {
+			t.Fatalf("Generate: %v", err)
+		}
+		defer signer.Clean()
+
+		msg := []byte("qday pqcVerify")
+		sig, err := signer.Sign(msg)
+		if err != nil {
+			t.Fatalf("Sign: %v", err)
+		}
+		pk := signer.PublicKey()
+		if len(pk) != pqcMLDSA44PkLen {
+			t.Fatalf("pubkey len = %d, want %d", len(pk), pqcMLDSA44PkLen)
+		}
+		if len(sig) != pqcMLDSA44SigLen {
+			t.Fatalf("signature len = %d, want %d", len(sig), pqcMLDSA44SigLen)
+		}
+
+		in := encode(pqcAlgMLDSA44, pqcMLDSA44PkLen, len(msg), pqcMLDSA44SigLen)
+		copy(in[pqcAlgNameLen:], pk)
+		copy(in[pqcAlgNameLen+pqcMLDSA44PkLen:], sig)
+		copy(in[pqcAlgNameLen+pqcMLDSA44PkLen+pqcMLDSA44SigLen:], msg)
+
+		want := common.LeftPadBytes([]byte{1}, 32)
+		res, _, err := RunPrecompiledContract(p, in, 15000)
+		if err != nil {
+			t.Fatalf("valid signature: %v", err)
+		}
+		if !bytes.Equal(res, want) {
+			t.Errorf("valid signature returned %x, want %x", res, want)
+		}
+
+		in[pqcAlgNameLen+pqcMLDSA44PkLen] ^= 0xff
+		res, _, err = RunPrecompiledContract(p, in, 15000)
+		if err != nil {
+			t.Fatalf("invalid signature: %v", err)
+		}
+		if len(res) != 0 {
+			t.Errorf("invalid signature returned %x, want empty", res)
+		}
+	})
 }

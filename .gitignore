@@ -36,6 +36,7 @@ docs/readthedocs/build
 /build/_workspace/
 /build/cache/
 /build/bin/
+/build/pkgconfig/
 /geth*.zip
 
 # travis

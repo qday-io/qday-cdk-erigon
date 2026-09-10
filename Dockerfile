@@ -1,9 +1,15 @@
 # syntax = docker/dockerfile:1.2
 FROM docker.io/library/golang:1.21-alpine3.17 AS builder
 
-RUN apk --no-cache add build-base linux-headers git bash ca-certificates libstdc++
+RUN apk --no-cache add build-base linux-headers git bash ca-certificates libstdc++ cmake ninja openssl-dev pkgconf
 
 WORKDIR /app
+COPY scripts/install-liboqs.sh /tmp/install-liboqs.sh
+RUN sh /tmp/install-liboqs.sh
+ENV CGO_ENABLED=1 \
+    PKG_CONFIG_PATH=/usr/local/lib/pkgconfig \
+    LD_LIBRARY_PATH=/usr/local/lib
+
 ADD go.mod go.mod
 ADD go.sum go.sum
 ADD erigon-lib/go.mod erigon-lib/go.mod
@@ -39,8 +45,10 @@ RUN --mount=type=cache,target=/root/.cache \
 FROM docker.io/library/alpine:3.17
 
 # install required runtime libs, along with some helpers for debugging
-RUN apk add --no-cache ca-certificates libstdc++ tzdata
+RUN apk add --no-cache ca-certificates libstdc++ libcrypto3 tzdata
 RUN apk add --no-cache curl jq bind-tools
+COPY --from=builder /usr/local/lib/liboqs.so* /usr/local/lib/
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # Setup user and group
 #

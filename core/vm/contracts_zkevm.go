@@ -1284,15 +1284,7 @@ func (c *pqcVerify_zkevm) Run(input []byte) ([]byte, error) {
 	if !c.enabled {
 		return nil, ErrUnsupportedPrecompile
 	}
-	alg, pubkey, message, signature, ok := parsePqcVerifyInput(input)
-	if !ok {
-		return nil, nil
-	}
-	// TODO(pqc): deduct zk counters via CounterCollector, then verify as in pqcVerify.Run.
-	_ = alg
-	_ = pubkey
-	_ = message
-	_ = signature
+	// TODO(pqc): deduct zk counters via CounterCollector.
 	_ = c.cc
-	return nil, nil
+	return runPqcVerify(input)
 }
