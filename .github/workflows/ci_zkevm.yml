@@ -33,7 +33,9 @@ jobs:
       matrix:
         os: [ ubuntu-22.04, macos-14-xlarge ] # list of os: https://github.com/actions/virtual-environments
     runs-on: ${{ matrix.os }}
-    timeout-minutes: ${{ matrix.os == 'macos-14-xlarge' && 40 || 30 }}
+    timeout-minutes: 45
+    env:
+      CGO_ENABLED: "1"
 
     steps:
       - uses: actions/checkout@v3
@@ -42,7 +44,9 @@ jobs:
           go-version: '1.21'
       - name: Install dependencies on Linux
         if: runner.os == 'Linux'
-        run: sudo apt update && sudo apt install build-essential
+        run: sudo apt update && sudo apt install -y build-essential cmake ninja-build libssl-dev pkg-config
+      - name: Install liboqs 0.16
+        run: sh scripts/install-liboqs.sh
 
       - name: Build
         run: make BUILD_TAGS=nosqlite,noboltdb,nosilkworm cdk-erigon

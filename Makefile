@@ -1,8 +1,30 @@
 GO ?= go # if using docker, should not need to be installed/linked
 GOBINREL = build/bin
 GOBIN = $(CURDIR)/$(GOBINREL)
-UNAME = $(shell uname) # Supported: Darwin, Linux
+UNAME := $(strip $(shell uname))
 DOCKER := $(shell command -v docker 2> /dev/null)
+
+# qday-pqc-sdk (liboqs-go) requires CGO and liboqs 0.16 at compile and runtime.
+export CGO_ENABLED := 1
+LIBOQS_VERSION ?= 0.16.0
+ifeq ($(UNAME), Darwin)
+	BREW_PREFIX := $(shell command -v brew >/dev/null 2>&1 && brew --prefix)
+	ifneq ($(BREW_PREFIX),)
+		LIBOQS_PREFIX ?= $(BREW_PREFIX)
+		OPENSSL_LIB ?= $(BREW_PREFIX)/opt/openssl@3/lib
+	else
+		LIBOQS_PREFIX ?= /usr/local
+	endif
+else
+	LIBOQS_PREFIX ?= /usr/local
+endif
+PKG_CONFIG_PATH := $(CURDIR)/build/pkgconfig:$(LIBOQS_PREFIX)/lib/pkgconfig:$(HOME)/.local/lib/pkgconfig:$(PKG_CONFIG_PATH)
+export PKG_CONFIG_PATH
+ifeq ($(UNAME), Darwin)
+	export DYLD_LIBRARY_PATH := $(LIBOQS_PREFIX)/lib:$(OPENSSL_LIB):$(DYLD_LIBRARY_PATH)
+else
+	export LD_LIBRARY_PATH := $(LIBOQS_PREFIX)/lib:$(LD_LIBRARY_PATH)
+endif
 
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD)
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
@@ -32,6 +54,12 @@ ifeq ($(shell uname -s), Darwin)
 	ifeq ($(filter-out 13.%,$(shell sw_vers --productVersion)),)
 		CGO_LDFLAGS += -mmacosx-version-min=13.3
 	endif
+	CGO_LDFLAGS += -Wl,-rpath,$(LIBOQS_PREFIX)/lib
+	ifneq ($(OPENSSL_LIB),)
+		CGO_LDFLAGS += -L$(OPENSSL_LIB) -Wl,-rpath,$(OPENSSL_LIB)
+	endif
+else
+	CGO_LDFLAGS += -Wl,-rpath,$(LIBOQS_PREFIX)/lib
 endif
 
 # about netgo see: https://github.com/golang/go/issues/30310#issuecomment-471669125 and https://github.com/golang/go/issues/57757
@@ -50,9 +78,9 @@ PACKAGE = github.com/ledgerwatch/erigon
 GO_FLAGS += -trimpath -tags $(BUILD_TAGS) -buildvcs=false
 GO_FLAGS += -ldflags "-X ${PACKAGE}/params.GitCommit=${GIT_COMMIT} -X ${PACKAGE}/params.GitBranch=${GIT_BRANCH} -X ${PACKAGE}/params.GitTag=${GIT_TAG}"
 
-GOBUILD = CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPRIVATE="$(GOPRIVATE)" $(GO) build $(GO_FLAGS)
-GO_DBG_BUILD = CGO_CFLAGS="$(CGO_CFLAGS) -DMDBX_DEBUG=1" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPRIVATE="$(GOPRIVATE)" $(GO) build -tags $(BUILD_TAGS),debug -gcflags=all="-N -l"  # see delve docs
-GOTEST = CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPRIVATE="$(GOPRIVATE)" GODEBUG=cgocheck=0 $(GO) test $(GO_FLAGS) -coverprofile=coverage.out ./... -p 2
+GOBUILD = CGO_ENABLED=1 CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPRIVATE="$(GOPRIVATE)" PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" $(GO) build $(GO_FLAGS)
+GO_DBG_BUILD = CGO_ENABLED=1 CGO_CFLAGS="$(CGO_CFLAGS) -DMDBX_DEBUG=1" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPRIVATE="$(GOPRIVATE)" PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" $(GO) build -tags $(BUILD_TAGS),debug -gcflags=all="-N -l"  # see delve docs
+GOTEST = CGO_ENABLED=1 CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPRIVATE="$(GOPRIVATE)" PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" GODEBUG=cgocheck=0 $(GO) test $(GO_FLAGS) -coverprofile=coverage.out ./... -p 2
 
 default: all
 
@@ -105,19 +133,47 @@ docker-compose: validate_docker_build_args setup_xdg_data_home
 	docker compose up
 
 ## dbg                                debug build allows see C stack traces, run it with GOTRACEBACK=crash. You don't need debug build for C pit for profiling. To profile C code use SETCGOTRCKEBACK=1
-dbg:
+dbg: build/pkgconfig/liboqs-go.pc
 	$(GO_DBG_BUILD) -o $(GOBIN)/ ./cmd/...
 
-%.cmd:
+build/pkgconfig/liboqs-go.pc:
+	@mkdir -p $(dir $@)
+	@{ \
+		echo "prefix=$(LIBOQS_PREFIX)"; \
+		echo "Name: liboqs-go"; \
+		echo "Description: Go bindings for liboqs"; \
+		echo "Version: $(LIBOQS_VERSION)"; \
+		echo "Cflags: -I\$${prefix}/include"; \
+		if [ "$(UNAME)" = "Darwin" ]; then \
+			echo "Ldflags: '-extldflags \"-Wl,-stack_size -Wl,0x1000000\"'"; \
+		fi; \
+		if [ -n "$(OPENSSL_LIB)" ]; then \
+			echo "Libs: -L\$${prefix}/lib -loqs -L$(OPENSSL_LIB) -lcrypto"; \
+		else \
+			echo "Libs: -L\$${prefix}/lib -loqs -lcrypto"; \
+		fi; \
+	} > $@
+
+## liboqs-pc:                         write liboqs-go.pc for CGO pkg-config
+.PHONY: liboqs-pc install-liboqs
+liboqs-pc: build/pkgconfig/liboqs-go.pc
+
+## install-liboqs:                    install liboqs 0.16 (compile + runtime) and liboqs-go.pc
+install-liboqs:
+	@chmod +x "$(CURDIR)/scripts/install-liboqs.sh"
+	PREFIX="$(LIBOQS_PREFIX)" OPENSSL_LIB="$(OPENSSL_LIB)" LIBOQS_VERSION="$(LIBOQS_VERSION)" "$(CURDIR)/scripts/install-liboqs.sh"
+	@$(MAKE) liboqs-pc
+
+%.cmd: build/pkgconfig/liboqs-go.pc
 	@# Note: $* is replaced by the command name
 	@echo "Building $*"
 	@cd ./cmd/$* && $(GOBUILD) -o $(GOBIN)/$*
 	@echo "Run \"$(GOBIN)/$*\" to launch $*."
 
 build-libs:
-ifeq ($(UNAME), Darwin )
+ifeq ($(UNAME), Darwin)
 	@brew install libomp gmp
-else ifeq ($(UNAME), Linux )
+else ifeq ($(UNAME), Linux)
 	@sudo apt install libgtest-dev libomp-dev libgmp-dev
 endif
 
@@ -173,7 +229,7 @@ test-erigon-ext:
 	@cd tests/erigon-ext-test && ./test.sh $(GIT_COMMIT)
 
 ## test:                              run unit tests with a 100s timeout
-test:
+test: build/pkgconfig/liboqs-go.pc
 	$(GOTEST) --timeout 10m
 
 test3:

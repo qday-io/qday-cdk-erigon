@@ -36,6 +36,7 @@ docs/readthedocs/build
 /build/_workspace/
 /build/cache/
 /build/bin/
+/build/pkgconfig/
 /geth*.zip
 
 # travis
@@ -80,6 +81,11 @@ go.work.sum
 
 .env
 coverage.out
+
+# Foundry artifacts under qday/example
+qday/example/out/
+qday/example/cache/
+qday/example/broadcast/
 hermezconfig*.yaml
 .dynamic-configs
 debugToolsConfig.yaml

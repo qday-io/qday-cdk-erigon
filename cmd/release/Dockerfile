@@ -3,6 +3,7 @@ WORKDIR /app
 
 ADD go.mod go.mod
 ADD go.sum go.sum
+ENV GOPROXY=https://proxy.golang.org,direct
 RUN go mod download
 
 ADD . .

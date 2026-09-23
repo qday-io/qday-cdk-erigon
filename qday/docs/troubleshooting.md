@@ -13,8 +13,28 @@ Binary not found. Run from repo root: make cdk-erigon
 **Resolution**: Build the binary first:
 
 ```bash
+./scripts/install-liboqs.sh   # once: liboqs 0.16 + CGO pkg-config
+make cdk-erigon               # CGO_ENABLED=1 is set by the Makefile
+```
+
+### Missing `liboqs` / `liboqs-go` at compile or start
+
+PQC verification links against **liboqs 0.16** via CGO. Compile needs headers + `liboqs-go.pc` (`CGO_ENABLED=1`); runtime needs the shared library (`liboqs.so` / `liboqs.dylib`).
+
+```
+Package liboqs-go was not found in the pkg-config search path
+error while loading shared libraries: liboqs.so.0
+Library not loaded: liboqs.dylib
+```
+
+**Resolution**:
+
+```bash
+./scripts/install-liboqs.sh
 make cdk-erigon
 ```
+
+Docker images install liboqs in both the build and runtime stages. Native macOS usually finds the Homebrew dylib; Linux may need `LD_LIBRARY_PATH=/usr/local/lib` if the binary was not linked with rpath.
 
 For Docker, make sure the image is pulled:
 
