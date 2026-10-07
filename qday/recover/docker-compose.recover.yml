@@ -1,17 +1,18 @@
 # =============================================================================
-# L1 Recovery — 恢复节点 compose
+# L1 Recovery — recovery-node compose
 # =============================================================================
-# 与现役 sequencer(qday2-sequencer)完全隔离:独立容器名、数据目录、端口。
-# 恢复期间两个节点可同时运行;验证通过后由 cutover.sh 停旧节点、
-# 把本节点切到标准端口(8545/6900)转正。
+# Isolated from the live sequencer (qday2-sequencer): own container name,
+# data directory, and ports. Both nodes can run together during recovery.
+# After verification, cutover.sh stops the old node and moves this one onto
+# the standard ports (8545/6900).
 #
-# 用法:
-#   cp env.example .env   # 按实际情况修改
+# Usage:
+#   cp env.example .env   # edit for this incident
 #   docker compose -f docker-compose.recover.yml --env-file .env up -d
 #
-# 日志:
+# Logs:
 #   docker logs -f qday2-sequencer-recover
-#   看到 "Starting sequencer in L1 recovery mode" 即表示 recovery 已生效
+#   "Starting sequencer in L1 recovery mode" means recovery mode is active
 # =============================================================================
 
 services:
@@ -20,7 +21,7 @@ services:
     container_name: qday2-sequencer-recover
     restart: unless-stopped
     mem_swappiness: 0
-    # entrypoint 复用 dynamic-configs 的脚本(chown /data 后降权为 erigon 用户)
+    # Reuse the dynamic-configs entrypoint (chown /data, then drop to the erigon user)
     user: root
     entrypoint: ["/bin/sh", "/config/docker-entrypoint.sh"]
     environment:
@@ -29,33 +30,34 @@ services:
       - --config=/recover/dynamic-recover.yaml
       - --datadir=/data
       - --zkevm.initial-batch.config=/recover/empty-batch.json
-      # 外部 L1(覆盖 yaml;来自 .env)
+      # External L1 (overrides yaml; values come from .env)
       - --zkevm.l1-rpc-url=${L1_RPC_URL:-http://host.docker.internal:1545}
       - --zkevm.l1-chain-id=${L1_CHAIN_ID:-31337}
-      # L1 recovery 开关:start-block > 0 即进入恢复模式,不使用 datastream
+      # L1 recovery switch: start-block > 0 enters recovery mode and does not use the datastream
       - --zkevm.l1-sync-start-block=${L1_SYNC_START_BLOCK:-88224}
-      # 恢复到该 batch 即停(0 = 不停,一直追到 L1 顶端);切换前保持非 0
+      # Stop once this batch is reached (0 = do not stop, follow the L1 tip). Keep non-zero until cutover.
       - --zkevm.l1-sync-stop-batch=${L1_SYNC_STOP_BATCH:-4390}
-      # 空块重放不等待交易池。默认 250ms 会让每个空块睡 250ms(约 4 块/秒),
-      # 4390 个 batch 要几十小时。恢复期间用 0s;cutover 转正时改回 250ms。
+      # Do not wait on the txpool while replaying empty blocks. The 250ms default sleeps
+      # on every empty block (~4 blocks/s), so a few thousand batches take tens of hours.
+      # Use 0s during recovery; cutover restores 250ms when promoting the node.
       - --zkevm.sequencer-timeout-on-empty-tx-pool=${SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL:-0s}
     volumes:
-      # entrypoint 脚本
+      # entrypoint script
       - ../dynamic-configs/docker-entrypoint.sh:/config/docker-entrypoint.sh:ro
-      # 恢复配置;动态链 chainspec 从 --config 所在目录加载,故三个 json
-      # 必须以单文件形式挂进 /recover(与 yaml 同目录)
+      # Recovery config. Dynamic-chain chainspec files load from the --config directory,
+      # so the three json files must be mounted individually into /recover (same dir as the yaml).
       - ./dynamic-recover.yaml:/recover/dynamic-recover.yaml:ro
       - ../dynamic-configs/dynamic-qday2-testnet-chainspec.json:/recover/dynamic-qday2-testnet-chainspec.json:ro
       - ../dynamic-configs/dynamic-qday2-testnet-allocs.json:/recover/dynamic-qday2-testnet-allocs.json:ro
       - ../dynamic-configs/dynamic-qday2-testnet-conf.json:/recover/dynamic-qday2-testnet-conf.json:ro
       - ../dynamic-configs/empty-batch.json:/recover/empty-batch.json:ro
-      # 独立的恢复数据目录(绝不要指向现役节点的 datadir-validium)
+      # Dedicated recovery datadir (never point this at the live node's datadir-validium)
       - ./datadir-recover:/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${RECOVER_RPC_PORT:-8645}:8123"        # HTTP JSON-RPC(恢复期间用 8645)
-      - "${RECOVER_DATASTREAM_PORT:-6901}:6900" # Datastream(恢复期间用 6901)
+      - "${RECOVER_RPC_PORT:-8645}:8123"        # HTTP JSON-RPC (8645 during recovery)
+      - "${RECOVER_DATASTREAM_PORT:-6901}:6900" # Datastream (6901 during recovery)
     healthcheck:
       test: ["CMD", "sh", "-c",
         "curl -sf -X POST http://localhost:8123 -H 'Content-Type: application/json' \

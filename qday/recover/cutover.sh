@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 # =============================================================================
-# cutover.sh — 切换:停旧 sequencer,恢复节点转正
+# cutover.sh — switch traffic: stop the old sequencer and promote the recovery node
 # =============================================================================
-# 执行内容:
-#   1. 先对恢复节点(8645 端口)跑 verify-recovery.sh,不通过则中止
-#   2. 停止旧 sequencer 容器(qday2-sequencer,数据卷保留不动)
-#   3. 恢复节点切到标准端口 8545/6900,摘掉 L1_SYNC_STOP_BATCH 关卡,
-#      并把空交易池等待从 0s 改回 250ms
-#      (恢复已完成,节点转为正常 sequencer,从 L1 顶端继续开新 batch)
-#   4. 重启 cdk 组件(aggregator / sequence-sender / validator)
-#   5. 对标准端口再跑一次验收
+# Steps:
+#   1. Run verify-recovery.sh against the recovery node (port 8645); abort on failure
+#   2. Stop the old sequencer container (qday2-sequencer); leave its data volume in place
+#   3. Move the recovery node to the standard ports 8545/6900, clear L1_SYNC_STOP_BATCH,
+#      and restore the empty-txpool wait from 0s to 250ms
+#      (recovery is done; the node becomes a normal sequencer and opens new batches from the L1 tip)
+#   4. Restart cdk components (aggregator / sequence-sender / validator)
+#   5. Run verification again against the standard port
 #
-# 用法:
-#   ./cutover.sh          # 交互确认后执行
-#   ./cutover.sh --yes    # 跳过确认
+# Usage:
+#   ./cutover.sh          # prompt before proceeding
+#   ./cutover.sh --yes    # skip the prompt
 #
-# 回滚:docker start qday2-sequencer 即可回到切换前状态(链仍是卡住的,
-# 但不会更坏),然后排查恢复节点问题后重试。
+# Rollback: `docker start qday2-sequencer` returns to the pre-cutover state (the chain
+# is still stuck, but no worse). Fix the recovery node and retry.
 # =============================================================================
 set -euo pipefail
 
@@ -35,72 +35,72 @@ CDK_COMPONENTS="${CDK_COMPONENTS:-cdk-aggregator cdk-sequence-sender cdk-validat
 CONFIRM=1
 [[ "${1:-}" == "--yes" ]] && CONFIRM=0
 
-# ---- 1. 切换前验收(对恢复端口)---------------------------------------------
-echo "==> 1/5 切换前验收(恢复节点 :${RECOVER_RPC_PORT:-8645})"
+# ---- 1. Pre-cutover verification (recovery port) ---------------------------
+echo "==> 1/5 pre-cutover verification (recovery node :${RECOVER_RPC_PORT:-8645})"
 if ! ./verify-recovery.sh "http://127.0.0.1:${RECOVER_RPC_PORT:-8645}"; then
-  echo "验收未通过,中止切换。"
+  echo "Verification failed; aborting cutover."
   exit 1
 fi
 
 if [[ $CONFIRM -eq 1 ]]; then
   echo
-  echo "即将执行:停止 $OLD_CONTAINER,把 $RECOVER_CONTAINER 切到 :$STD_RPC_PORT/$STD_DATASTREAM_PORT,摘掉 stop-batch 关卡,并把空池等待改回 250ms。"
-  read -r -p "确认继续? [y/N] " ans
-  [[ "$ans" == "y" || "$ans" == "Y" ]] || { echo "已取消。"; exit 0; }
+  echo "About to stop $OLD_CONTAINER, move $RECOVER_CONTAINER to :$STD_RPC_PORT/$STD_DATASTREAM_PORT, clear the stop-batch gate, and restore the empty-pool wait to 250ms."
+  read -r -p "Continue? [y/N] " ans
+  [[ "$ans" == "y" || "$ans" == "Y" ]] || { echo "Cancelled."; exit 0; }
 fi
 
-# ---- 2. 停旧节点 ------------------------------------------------------------
-echo "==> 2/5 停止旧 sequencer ($OLD_CONTAINER)"
+# ---- 2. Stop the old node ---------------------------------------------------
+echo "==> 2/5 stopping old sequencer ($OLD_CONTAINER)"
 if docker ps --format '{{.Names}}' | grep -qx "$OLD_CONTAINER"; then
   docker stop "$OLD_CONTAINER"
 else
-  echo "    ($OLD_CONTAINER 不在运行,跳过)"
+  echo "    ($OLD_CONTAINER is not running; skipping)"
 fi
 
-# ---- 3. 恢复节点转正 ---------------------------------------------------------
-echo "==> 3/5 恢复节点切到标准端口 $STD_RPC_PORT/$STD_DATASTREAM_PORT,L1_SYNC_STOP_BATCH=0,空池等待=250ms"
-# 空池等待写回 .env:之后按 README 把 L1_SYNC_START_BLOCK 改为 0 再 up,
-# 不会退回 0s(0s 只用于重放历史空块)。
+# ---- 3. Promote the recovery node -------------------------------------------
+echo "==> 3/5 moving recovery node to $STD_RPC_PORT/$STD_DATASTREAM_PORT, L1_SYNC_STOP_BATCH=0, empty-pool wait=250ms"
+# Persist the empty-pool wait in .env so a later restart with L1_SYNC_START_BLOCK=0
+# does not fall back to 0s (0s is only for replaying historical empty blocks).
 if [[ -f .env ]] && grep -q '^SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=' .env; then
   sed -i.bak 's|^SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=.*|SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=250ms|' .env
   rm -f .env.bak
 elif [[ -f .env ]]; then
   printf '\nSEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=250ms\n' >> .env
 fi
-# shell 环境变量优先于 .env,实现不改 stop-batch 文件值的切换
+# Shell environment variables override .env, so the stop-batch value in the file stays unchanged.
 RECOVER_RPC_PORT="$STD_RPC_PORT" \
 RECOVER_DATASTREAM_PORT="$STD_DATASTREAM_PORT" \
 L1_SYNC_STOP_BATCH=0 \
 SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=250ms \
 docker compose -f docker-compose.recover.yml --env-file .env up -d
 
-echo "    等待节点健康检查通过..."
+echo "    waiting for the node health check..."
 for i in $(seq 1 20); do
   if curl -sf -m 5 -X POST "http://127.0.0.1:$STD_RPC_PORT" -H 'Content-Type: application/json' \
       -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' | grep -q result; then
     break
   fi
-  [[ $i -eq 20 ]] && { echo "节点 RPC 未就绪,请查看: docker logs $RECOVER_CONTAINER"; exit 1; }
+  [[ $i -eq 20 ]] && { echo "Node RPC is not ready. See: docker logs $RECOVER_CONTAINER"; exit 1; }
   sleep 3
 done
 
-# ---- 4. 重启 cdk 组件 --------------------------------------------------------
-echo "==> 4/5 重启 cdk 组件"
+# ---- 4. Restart cdk components ----------------------------------------------
+echo "==> 4/5 restarting cdk components"
 for c in $CDK_COMPONENTS; do
   if docker ps -a --format '{{.Names}}' | grep -qx "$c"; then
-    docker restart "$c" && echo "    $c 已重启"
+    docker restart "$c" && echo "    restarted $c"
   else
-    echo "    ($c 不存在,跳过)"
+    echo "    ($c does not exist; skipping)"
   fi
 done
 
-# ---- 5. 切换后验收(对标准端口)---------------------------------------------
-echo "==> 5/5 切换后验收(:$STD_RPC_PORT)"
+# ---- 5. Post-cutover verification (standard port) --------------------------
+echo "==> 5/5 post-cutover verification (:$STD_RPC_PORT)"
 ./verify-recovery.sh "http://127.0.0.1:$STD_RPC_PORT"
 
 echo
-echo "切换完成。后续观察点:"
-echo "  - aggregator: 不再报 BatchL2Data mismatch,出现 settlement tx 日志"
-echo "  - L1 verified batch 应从 $ANCHOR_BATCH 推进到 $EXPECTED_BATCH"
-echo "  - 稳定运行后,把 .env 中 L1_SYNC_START_BLOCK 改为 0 并重启本节点"
-echo "    (退出 L1 recovery 模式),旧数据卷确认无问题后再清理"
+echo "Cutover complete. Watch for:"
+echo "  - aggregator: no more BatchL2Data mismatch; settlement tx logs appear"
+echo "  - L1 verified batch should advance from $ANCHOR_BATCH to $EXPECTED_BATCH"
+echo "  - after the chain is stable, set L1_SYNC_START_BLOCK=0 in .env and restart this node"
+echo "    (leave L1 recovery mode). Remove the old data volume only after that is confirmed."
