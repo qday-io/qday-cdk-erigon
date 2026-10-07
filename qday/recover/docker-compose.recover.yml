@@ -1,0 +1,64 @@
+# =============================================================================
+# L1 Recovery — 恢复节点 compose
+# =============================================================================
+# 与现役 sequencer(qday2-sequencer)完全隔离:独立容器名、数据目录、端口。
+# 恢复期间两个节点可同时运行;验证通过后由 cutover.sh 停旧节点、
+# 把本节点切到标准端口(8545/6900)转正。
+#
+# 用法:
+#   cp env.example .env   # 按实际情况修改
+#   docker compose -f docker-compose.recover.yml --env-file .env up -d
+#
+# 日志:
+#   docker logs -f qday2-sequencer-recover
+#   看到 "Starting sequencer in L1 recovery mode" 即表示 recovery 已生效
+# =============================================================================
+
+services:
+  sequencer-recover:
+    image: ${CDK_ERIGON_IMAGE}
+    container_name: qday2-sequencer-recover
+    restart: unless-stopped
+    mem_swappiness: 0
+    # entrypoint 复用 dynamic-configs 的脚本(chown /data 后降权为 erigon 用户)
+    user: root
+    entrypoint: ["/bin/sh", "/config/docker-entrypoint.sh"]
+    environment:
+      - CDK_ERIGON_SEQUENCER=1
+    command:
+      - --config=/recover/dynamic-recover.yaml
+      - --datadir=/data
+      - --zkevm.initial-batch.config=/recover/empty-batch.json
+      # 外部 L1(覆盖 yaml;来自 .env)
+      - --zkevm.l1-rpc-url=${L1_RPC_URL:-http://host.docker.internal:1545}
+      - --zkevm.l1-chain-id=${L1_CHAIN_ID:-31337}
+      # L1 recovery 开关:start-block > 0 即进入恢复模式,不使用 datastream
+      - --zkevm.l1-sync-start-block=${L1_SYNC_START_BLOCK:-88224}
+      # 恢复到该 batch 即停(0 = 不停,一直追到 L1 顶端);切换前保持非 0
+      - --zkevm.l1-sync-stop-batch=${L1_SYNC_STOP_BATCH:-4390}
+    volumes:
+      # entrypoint 脚本
+      - ../dynamic-configs/docker-entrypoint.sh:/config/docker-entrypoint.sh:ro
+      # 恢复配置;动态链 chainspec 从 --config 所在目录加载,故三个 json
+      # 必须以单文件形式挂进 /recover(与 yaml 同目录)
+      - ./dynamic-recover.yaml:/recover/dynamic-recover.yaml:ro
+      - ../dynamic-configs/dynamic-qday2-testnet-chainspec.json:/recover/dynamic-qday2-testnet-chainspec.json:ro
+      - ../dynamic-configs/dynamic-qday2-testnet-allocs.json:/recover/dynamic-qday2-testnet-allocs.json:ro
+      - ../dynamic-configs/dynamic-qday2-testnet-conf.json:/recover/dynamic-qday2-testnet-conf.json:ro
+      - ../dynamic-configs/empty-batch.json:/recover/empty-batch.json:ro
+      # 独立的恢复数据目录(绝不要指向现役节点的 datadir-validium)
+      - ./datadir-recover:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${RECOVER_RPC_PORT:-8645}:8123"        # HTTP JSON-RPC(恢复期间用 8645)
+      - "${RECOVER_DATASTREAM_PORT:-6901}:6900" # Datastream(恢复期间用 6901)
+    healthcheck:
+      test: ["CMD", "sh", "-c",
+        "curl -sf -X POST http://localhost:8123 -H 'Content-Type: application/json' \
+         -d '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' \
+         | grep -q result"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s

@@ -1,0 +1,65 @@
+# =============================================================================
+# L1 Recovery 配置 — 从 L1 重建 sequencer 节点
+# =============================================================================
+# 基于 qday/dynamic-configs/dynamic-validium.yaml,差异:
+#   - datadir 指向独立的恢复数据目录(由 compose 命令行覆盖为 /data)
+#   - L1 recovery 开关由 compose 命令行传入:
+#       --zkevm.l1-sync-start-block=${L1_SYNC_START_BLOCK}
+#       --zkevm.l1-sync-stop-batch=${L1_SYNC_STOP_BATCH}
+#
+# 注意:动态链的 chainspec/allocs/conf 从 --config 所在目录加载
+# (params.DynamicChainConfigPath = filepath.Dir(configFile)),
+# 因此 docker-compose.recover.yml 会把 dynamic-qday2-testnet-*.json
+# 以单文件方式挂载到 /recover/ 下,勿删。
+# =============================================================================
+
+datadir: /data
+chain: dynamic-qday2-testnet
+http: true
+
+zkevm.l2-chain-id: 44005
+
+# ---- L1 / rollup(与 dynamic-validium.yaml 保持一致)------------------------
+zkevm.l1-chain-id: 31337
+zkevm.l1-rpc-url: "http://host.docker.internal:1545"
+
+zkevm.address-sequencer: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+zkevm.address-zkevm: "0x24B3c7704709ed1491473F30393FFc93cFB0FC34"
+zkevm.address-rollup: "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1"
+zkevm.address-ger-manager: "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
+
+zkevm.l1-matic-contract-address: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
+zkevm.l1-block-range: 20000
+zkevm.l1-query-delay: 6000
+zkevm.l1-first-block: 88224
+
+zkevm.l1-contract-address-check: false
+zkevm.l1-contract-address-retrieve: false
+zkevm.l1-cache-enabled: false
+
+# L1 recovery 必须从 L1 同步,严禁开启 skip-l1-sync
+zkevm.skip-l1-sync: false
+
+zkevm.allow-free-transactions: false
+
+zkevm.executor-strict: false
+zkevm.disable-virtual-counters: true
+zkevm.initial-batch.config: "/recover/empty-batch.json"
+
+zkevm.data-stream-port: 6900
+zkevm.data-stream-host: "0.0.0.0"
+zkevm.datastream-version: 2
+
+zkevm.sequencer-block-seal-time: "5s"
+zkevm.sequencer-batch-seal-time: "15m"
+zkevm.allow-pre-eip155-transactions: true
+
+zkevm.default-gas-price: 1000000000
+
+http.api: [eth, debug, net, trace, web3, erigon, txpool, zkevm]
+http.addr: "0.0.0.0"
+http.port: 8123
+http.vhosts: "*"
+http.corsdomain: "*"
+ws: true
+rpc.batch.limit: 500
