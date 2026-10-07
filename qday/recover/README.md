@@ -55,8 +55,9 @@ flowchart LR
 
 - 日志出现 `Starting sequencer in L1 recovery mode` 即表示模式生效;
 - `zkevm.l1-sync-stop-batch: N` 让恢复到 batch N 即停,作为**验证关卡**;
-- `zkevm.l2-short-circuit-to-verified-batch` 默认开启:L1 已验证的 batch
-  走快速通道,其后的 batch 完整执行,恢复速度更快;
+- sequencer 的 L1 recovery 逐块重放,不走 `l2-short-circuit-to-verified-batch`。
+  空块默认还会等 `sequencer-timeout-on-empty-tx-pool`(250ms)。本流程在恢复期间
+  把它设为 `0s`,否则几千个 batch 的空块要跑几十小时;切换转正时改回 `250ms`;
 - 重放是确定性的:只要二进制执行规则与产生历史时兼容,重建后的
   stateRoot 必然与 L1 已验证值一致——这就是验收的数学依据。
 
@@ -110,8 +111,16 @@ docker logs -f qday2-sequencer-recover
 - batch 号持续推进;
 - `Stopping L1 sync based on stop batch config` — 到达 `L1_SYNC_STOP_BATCH`,恢复完成。
 
-参考耗时:L1 扫描(块数 / `l1-block-range`)+ batch 重放(空块为主),
-本样例规模(34 万 L1 块 / 4390 batch)约数十分钟。
+参考耗时:主要花在 L1 扫描(块数 / `l1-block-range`)和有交易的块上。
+空块在 `SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=0s` 下不再每块等 250ms。
+日志里 `Finish block ... taken=` 应远小于 250ms;若稳定在 250ms 左右,
+说明容器还是旧命令行,需要按下面的方式重建。
+
+已经在跑的恢复容器不会自动吃到这项。重建(当前未提交的 batch 会重放,已完成的 batch 保留):
+
+```bash
+docker compose -f docker-compose.recover.yml --env-file .env up -d --force-recreate
+```
 
 ### 第 2 步:验收
 
@@ -164,6 +173,7 @@ docker logs -f cdk-aggregator
 | 日志没有 `L1 recovery mode` | `L1_SYNC_START_BLOCK` 为 0 或未传到;检查 `.env` 与 compose 命令行 |
 | 一直扫不到 SequenceBatches 事件 | `L1_SYNC_START_BLOCK` / `l1-first-block` 大于合约部署块;或 L1 RPC 历史缺失(pruned) |
 | 卡在某个 batch 不动 | 该 batch 的 L1 数据解码/执行失败,看日志报错;常见于执行规则不兼容(见前提条件表) |
+| `Finish block` 的 `taken` 稳定在约 250ms | 空池等待仍是默认 250ms。确认 `.env` 里 `SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=0s`,然后 `--force-recreate` |
 | 验收第 [2] 项 stateRoot 不一致 | 重放结果与 L1 已验证状态分叉,**禁止切换**;检查镜像版本、genesis allocs 是否与历史一致 |
 | 验收第 [3]/[4] 项失败 | 恢复未覆盖该 batch;确认 `L1_SYNC_STOP_BATCH` ≥ 该 batch,且 L1 上确有该 batch 的 sequence |
 

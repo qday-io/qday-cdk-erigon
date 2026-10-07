@@ -36,6 +36,9 @@ services:
       - --zkevm.l1-sync-start-block=${L1_SYNC_START_BLOCK:-88224}
       # 恢复到该 batch 即停(0 = 不停,一直追到 L1 顶端);切换前保持非 0
       - --zkevm.l1-sync-stop-batch=${L1_SYNC_STOP_BATCH:-4390}
+      # 空块重放不等待交易池。默认 250ms 会让每个空块睡 250ms(约 4 块/秒),
+      # 4390 个 batch 要几十小时。恢复期间用 0s;cutover 转正时改回 250ms。
+      - --zkevm.sequencer-timeout-on-empty-tx-pool=${SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL:-0s}
     volumes:
       # entrypoint 脚本
       - ../dynamic-configs/docker-entrypoint.sh:/config/docker-entrypoint.sh:ro

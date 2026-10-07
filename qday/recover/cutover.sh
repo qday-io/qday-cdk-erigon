@@ -5,7 +5,8 @@
 # 执行内容:
 #   1. 先对恢复节点(8645 端口)跑 verify-recovery.sh,不通过则中止
 #   2. 停止旧 sequencer 容器(qday2-sequencer,数据卷保留不动)
-#   3. 恢复节点切到标准端口 8545/6900,并摘掉 L1_SYNC_STOP_BATCH 关卡
+#   3. 恢复节点切到标准端口 8545/6900,摘掉 L1_SYNC_STOP_BATCH 关卡,
+#      并把空交易池等待从 0s 改回 250ms
 #      (恢复已完成,节点转为正常 sequencer,从 L1 顶端继续开新 batch)
 #   4. 重启 cdk 组件(aggregator / sequence-sender / validator)
 #   5. 对标准端口再跑一次验收
@@ -43,7 +44,7 @@ fi
 
 if [[ $CONFIRM -eq 1 ]]; then
   echo
-  echo "即将执行:停止 $OLD_CONTAINER,把 $RECOVER_CONTAINER 切到 :$STD_RPC_PORT/$STD_DATASTREAM_PORT 并摘掉 stop-batch 关卡。"
+  echo "即将执行:停止 $OLD_CONTAINER,把 $RECOVER_CONTAINER 切到 :$STD_RPC_PORT/$STD_DATASTREAM_PORT,摘掉 stop-batch 关卡,并把空池等待改回 250ms。"
   read -r -p "确认继续? [y/N] " ans
   [[ "$ans" == "y" || "$ans" == "Y" ]] || { echo "已取消。"; exit 0; }
 fi
@@ -57,11 +58,20 @@ else
 fi
 
 # ---- 3. 恢复节点转正 ---------------------------------------------------------
-echo "==> 3/5 恢复节点切到标准端口 $STD_RPC_PORT/$STD_DATASTREAM_PORT,L1_SYNC_STOP_BATCH=0"
-# shell 环境变量优先于 .env,实现不改文件切换
+echo "==> 3/5 恢复节点切到标准端口 $STD_RPC_PORT/$STD_DATASTREAM_PORT,L1_SYNC_STOP_BATCH=0,空池等待=250ms"
+# 空池等待写回 .env:之后按 README 把 L1_SYNC_START_BLOCK 改为 0 再 up,
+# 不会退回 0s(0s 只用于重放历史空块)。
+if [[ -f .env ]] && grep -q '^SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=' .env; then
+  sed -i.bak 's|^SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=.*|SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=250ms|' .env
+  rm -f .env.bak
+elif [[ -f .env ]]; then
+  printf '\nSEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=250ms\n' >> .env
+fi
+# shell 环境变量优先于 .env,实现不改 stop-batch 文件值的切换
 RECOVER_RPC_PORT="$STD_RPC_PORT" \
 RECOVER_DATASTREAM_PORT="$STD_DATASTREAM_PORT" \
 L1_SYNC_STOP_BATCH=0 \
+SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL=250ms \
 docker compose -f docker-compose.recover.yml --env-file .env up -d
 
 echo "    等待节点健康检查通过..."
