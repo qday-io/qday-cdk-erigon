@@ -223,11 +223,36 @@ fn_send_eth() {
   read -r -p "  Amount in ETH (e.g. 0.01): " AMT
   [[ -z "$AMT" ]] && { echo "  Cancelled."; return; }
 
-  local val; val=$(echo "$AMT * 10^18" | bc 2>/dev/null | cut -d. -f1)
+  # Do not go through cast_call: it drops stderr, and a failed cast send
+  # then exits the menu because of set -e. This chain also rejects free
+  # transactions, and eth_gasPrice fails when the L1 gas-price fetch fails,
+  # so pin a legacy gas price (config default is 1 gwei) and a gas limit
+  # instead of relying on eth_estimateGas.
+  local gp
+  gp=$(cast gas-price --rpc-url "$RPC_URL" 2>/dev/null || true)
+  if [[ -z "$gp" || "$gp" == "0" ]]; then
+    gp=1000000000
+    echo "  eth_gasPrice unavailable; using 1 gwei"
+  fi
+
   echo ""
   echo "  Sending ${AMT} ETH → ${TO} ..."
-  local tx; tx=$(cast_call send --private-key "$PK" --legacy --value "$val" "$TO" 2>&1)
-  echo "  TX: ${tx}"
+  local out
+  if ! out=$(cast send \
+      --private-key "$PK" \
+      --legacy \
+      --gas-price "$gp" \
+      --gas-limit 100000 \
+      --timeout 30 \
+      --value "${AMT}ether" \
+      "$TO" \
+      --rpc-url "$RPC_URL" 2>&1); then
+    echo "  Send failed:"
+    printf '%s\n' "$out" | sed 's/^/    /'
+    divider
+    return 0
+  fi
+  printf '%s\n' "$out" | sed 's/^/  /'
   divider
 }
 
