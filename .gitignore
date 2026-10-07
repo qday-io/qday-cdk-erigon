@@ -82,10 +82,10 @@ go.work.sum
 .env
 coverage.out
 
-# Foundry artifacts under qday/example
-qday/example/out/
-qday/example/cache/
-qday/example/broadcast/
+# Foundry artifacts under qday/PQC-example
+qday/PQC-example/out/
+qday/PQC-example/cache/
+qday/PQC-example/broadcast/
 hermezconfig*.yaml
 .dynamic-configs
 debugToolsConfig.yaml
