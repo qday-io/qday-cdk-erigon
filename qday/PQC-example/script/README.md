@@ -6,7 +6,7 @@ Call QDay’s PQCVERIFY precompile (`0x1000`) from a Solidity wrapper. The defau
 
 | File | Purpose |
 |------|---------|
-| [`genvector.go`](genvector.go) | Generate an ML-DSA-65 key pair and signature, write them to `qday/example/.env` |
+| [`genvector.go`](genvector.go) | Generate an ML-DSA-65 key pair and signature, write them to `qday/PQC-example/.env` |
 | [`Verify.s.sol`](Verify.s.sol) | Read `.env` and send `verifyAndEmit` to a deployed `PqcVerify` |
 
 Contract sources live one directory up: [`PqcVerify.sol`](../PqcVerify.sol), [`PqcPrecompile.sol`](../PqcPrecompile.sol).
@@ -31,10 +31,10 @@ Step 1 is once per deployment. For a new signature, repeat 2 → 3.
 
 ### 1. Deploy the wrapper
 
-From the repo root, or `cd qday/example`:
+From the repo root, or `cd qday/PQC-example`:
 
 ```bash
-cd qday/example
+cd qday/PQC-example
 
 forge create PqcVerify.sol:PqcVerify \
   --root . \
@@ -45,7 +45,7 @@ forge create PqcVerify.sol:PqcVerify \
   --legacy
 ```
 
-Copy `Deployed to: 0x...` into `PQC_VERIFY=` in `qday/example/.env`. If `.env` does not exist yet, step 2 creates it and fills a default address.
+Copy `Deployed to: 0x...` into `PQC_VERIFY=` in `qday/PQC-example/.env`. If `.env` does not exist yet, step 2 creates it and fills a default address.
 
 ### 2. Generate a vector into `.env`
 
@@ -57,10 +57,10 @@ export CGO_ENABLED=1
 export PKG_CONFIG_PATH="$(pwd)/build/pkgconfig:/opt/homebrew/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export CGO_LDFLAGS="-Wl,-rpath,/opt/homebrew/lib -L/opt/homebrew/opt/openssl@3/lib -Wl,-rpath,/opt/homebrew/opt/openssl@3/lib"
 
-go run -tags pqcgen ./qday/example/script/genvector.go
+go run -tags pqcgen ./qday/PQC-example/script/genvector.go
 ```
 
-On success it prints `wrote .../qday/example/.env`. An existing `.env` is merged: vector fields are overwritten, keys such as `PQC_VERIFY` are kept.
+On success it prints `wrote .../qday/PQC-example/.env`. An existing `.env` is merged: vector fields are overwritten, keys such as `PQC_VERIFY` are kept.
 
 Optional environment variables:
 
@@ -79,14 +79,14 @@ Optional environment variables:
 | `PUBKEY` / `SIGNATURE` / `MESSAGE` | Arguments for `Verify.s.sol` → `verifyAndEmit` |
 | `INPUT` | Raw precompile payload: `alg(8B BE) \|\| pubkey \|\| signature \|\| message` |
 
-Foundry loads `qday/example/.env` automatically. `.env` is gitignored.
+Foundry loads `qday/PQC-example/.env` automatically. `.env` is gitignored.
 
 ### 3. Run the verify script
 
 Foundry’s local EVM does **not** implement the `0x1000` precompile. You must pass `--broadcast --skip-simulation` so the real node executes the call.
 
 ```bash
-cd qday/example
+cd qday/PQC-example
 
 forge script script/Verify.s.sol:VerifyScript \
   --sig "run()" \
@@ -102,14 +102,14 @@ forge script script/Verify.s.sol:VerifyScript \
 
 Success looks like `ONCHAIN EXECUTION COMPLETE & SUCCESSFUL`, receipt `status = 0x1`, and event `PqcVerified(alg=2, valid=true)`.
 
-Broadcast artifacts are under `qday/example/broadcast/Verify.s.sol/<chainId>/`.
+Broadcast artifacts are under `qday/PQC-example/broadcast/Verify.s.sol/<chainId>/`.
 
 ## Read-only check (optional, between steps 2 and 3)
 
 `eth_call` against the live RPC, no transaction:
 
 ```bash
-cd qday/example
+cd qday/PQC-example
 set -a && source .env && set +a
 
 cast call "$PQC_VERIFY" \

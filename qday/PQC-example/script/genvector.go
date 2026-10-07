@@ -1,9 +1,9 @@
 //go:build pqcgen
 
 // Command genvector generates an ML-DSA-65 payload and writes it to `.env`
-// for Verify.s.sol (Foundry loads qday/example/.env automatically).
+// for Verify.s.sol (Foundry loads qday/PQC-example/.env automatically).
 //
-//	go run -tags pqcgen ./qday/example/script/genvector.go
+//	go run -tags pqcgen ./qday/PQC-example/script/genvector.go
 package main
 
 import (
