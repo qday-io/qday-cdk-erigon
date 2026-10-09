@@ -1,0 +1,65 @@
+# =============================================================================
+# L1 recovery config — rebuild a sequencer node from L1
+# =============================================================================
+# Based on qday/dynamic-configs/dynamic-validium.yaml. Differences:
+#   - datadir points at a dedicated recovery directory (compose overrides it to /data)
+#   - L1 recovery switches are passed on the compose command line:
+#       --zkevm.l1-sync-start-block=${L1_SYNC_START_BLOCK}
+#       --zkevm.l1-sync-stop-batch=${L1_SYNC_STOP_BATCH}
+#
+# Dynamic-chain chainspec/allocs/conf load from the directory of --config
+# (params.DynamicChainConfigPath = filepath.Dir(configFile)).
+# docker-compose.recover.yml therefore mounts dynamic-qday2-testnet-*.json
+# as individual files under /recover/. Do not remove those mounts.
+# =============================================================================
+
+datadir: /data
+chain: dynamic-qday2-testnet
+http: true
+
+zkevm.l2-chain-id: 44005
+
+# ---- L1 / rollup (keep in sync with dynamic-validium.yaml) -----------------
+zkevm.l1-chain-id: 31337
+zkevm.l1-rpc-url: "http://host.docker.internal:1545"
+
+zkevm.address-sequencer: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+zkevm.address-zkevm: "0x24B3c7704709ed1491473F30393FFc93cFB0FC34"
+zkevm.address-rollup: "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1"
+zkevm.address-ger-manager: "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
+
+zkevm.l1-matic-contract-address: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
+zkevm.l1-block-range: 20000
+zkevm.l1-query-delay: 6000
+zkevm.l1-first-block: 88224
+
+zkevm.l1-contract-address-check: false
+zkevm.l1-contract-address-retrieve: false
+zkevm.l1-cache-enabled: false
+
+# L1 recovery must sync from L1; do not enable skip-l1-sync
+zkevm.skip-l1-sync: false
+
+zkevm.allow-free-transactions: false
+
+zkevm.executor-strict: false
+zkevm.disable-virtual-counters: true
+zkevm.initial-batch.config: "/recover/empty-batch.json"
+
+zkevm.data-stream-port: 6900
+zkevm.data-stream-host: "0.0.0.0"
+zkevm.datastream-version: 2
+
+zkevm.sequencer-block-seal-time: "5s"
+zkevm.sequencer-batch-seal-time: "15m"
+zkevm.allow-pre-eip155-transactions: true
+
+zkevm.default-gas-price: 1000000000
+
+http.api: [eth, debug, net, trace, web3, erigon, txpool, zkevm]
+http.addr: "0.0.0.0"
+http.port: 8123
+http.vhosts: "*"
+http.corsdomain: "*"
+ws: true
+rpc.batch.limit: 500

@@ -1,0 +1,69 @@
+# =============================================================================
+# L1 Recovery — recovery-node compose
+# =============================================================================
+# Isolated from the live sequencer (qday2-sequencer): own container name,
+# data directory, and ports. Both nodes can run together during recovery.
+# After verification, cutover.sh stops the old node and moves this one onto
+# the standard ports (8545/6900).
+#
+# Usage:
+#   cp env.example .env   # edit for this incident
+#   docker compose -f docker-compose.recover.yml --env-file .env up -d
+#
+# Logs:
+#   docker logs -f qday2-sequencer-recover
+#   "Starting sequencer in L1 recovery mode" means recovery mode is active
+# =============================================================================
+
+services:
+  sequencer-recover:
+    image: ${CDK_ERIGON_IMAGE}
+    container_name: qday2-sequencer-recover
+    restart: unless-stopped
+    mem_swappiness: 0
+    # Reuse the dynamic-configs entrypoint (chown /data, then drop to the erigon user)
+    user: root
+    entrypoint: ["/bin/sh", "/config/docker-entrypoint.sh"]
+    environment:
+      - CDK_ERIGON_SEQUENCER=1
+    command:
+      - --config=/recover/dynamic-recover.yaml
+      - --datadir=/data
+      - --zkevm.initial-batch.config=/recover/empty-batch.json
+      # External L1 (overrides yaml; values come from .env)
+      - --zkevm.l1-rpc-url=${L1_RPC_URL:-http://host.docker.internal:1545}
+      - --zkevm.l1-chain-id=${L1_CHAIN_ID:-31337}
+      # L1 recovery switch: start-block > 0 enters recovery mode and does not use the datastream
+      - --zkevm.l1-sync-start-block=${L1_SYNC_START_BLOCK:-88224}
+      # Stop once this batch is reached (0 = do not stop, follow the L1 tip). Keep non-zero until cutover.
+      - --zkevm.l1-sync-stop-batch=${L1_SYNC_STOP_BATCH:-4390}
+      # Do not wait on the txpool while replaying empty blocks. The 250ms default sleeps
+      # on every empty block (~4 blocks/s), so a few thousand batches take tens of hours.
+      # Use 0s during recovery; cutover restores 250ms when promoting the node.
+      - --zkevm.sequencer-timeout-on-empty-tx-pool=${SEQUENCER_TIMEOUT_ON_EMPTY_TX_POOL:-0s}
+    volumes:
+      # entrypoint script
+      - ../dynamic-configs/docker-entrypoint.sh:/config/docker-entrypoint.sh:ro
+      # Recovery config. Dynamic-chain chainspec files load from the --config directory,
+      # so the three json files must be mounted individually into /recover (same dir as the yaml).
+      - ./dynamic-recover.yaml:/recover/dynamic-recover.yaml:ro
+      - ../dynamic-configs/dynamic-qday2-testnet-chainspec.json:/recover/dynamic-qday2-testnet-chainspec.json:ro
+      - ../dynamic-configs/dynamic-qday2-testnet-allocs.json:/recover/dynamic-qday2-testnet-allocs.json:ro
+      - ../dynamic-configs/dynamic-qday2-testnet-conf.json:/recover/dynamic-qday2-testnet-conf.json:ro
+      - ../dynamic-configs/empty-batch.json:/recover/empty-batch.json:ro
+      # Dedicated recovery datadir (never point this at the live node's datadir-validium)
+      - ./datadir-recover:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${RECOVER_RPC_PORT:-8645}:8123"        # HTTP JSON-RPC (8645 during recovery)
+      - "${RECOVER_DATASTREAM_PORT:-6901}:6900" # Datastream (6901 during recovery)
+    healthcheck:
+      test: ["CMD", "sh", "-c",
+        "curl -sf -X POST http://localhost:8123 -H 'Content-Type: application/json' \
+         -d '{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}' \
+         | grep -q result"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
